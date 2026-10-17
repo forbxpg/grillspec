@@ -1,0 +1,54 @@
+# Lint and format. Types are checked by basedpyright (pyrightconfig.json), not by ruff.
+target-version = "py311"
+line-length = 88
+src = ["src", "tests", "scripts"]
+
+[lint]
+select = ["ALL"]
+# Preview rules and fixes too: new checks land there first.
+preview = true
+# Annotation-only imports move under `if TYPE_CHECKING`, fixed by the future import.
+future-annotations = true
+ignore = [
+    "single-line-implicit-string-concatenation",
+    # pydocstyle pairs that exclude each other: keep no-blank-line-before-class and
+    # multi-line-summary-first-line.
+    "incorrect-blank-line-before-class",
+    "multi-line-summary-second-line",
+    # Conventions: the class docstring covers __init__; packages document themselves
+    # in __init__ only when they have something to say; no per-file copyright header.
+    "undocumented-public-init",
+    "undocumented-public-package",
+    "missing-copyright-notice",
+    # Conflicts with the formatter.
+    "missing-trailing-comma",
+]
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.isort]
+required-imports = ["from __future__ import annotations"]
+
+[lint.per-file-ignores]
+"tests/**" = [
+    "ANN",
+    "D",
+    "assert",
+    "implicit-namespace-package",
+    "import-private-name",
+    "line-too-long",
+    "magic-value-comparison",
+    "no-self-use",
+    "private-member-access",
+    "subprocess-without-shell-equals-true",
+    "start-process-with-partial-path",
+    "suspicious-subprocess-import",
+]
+"scripts/**" = ["implicit-namespace-package"]
+
+[format]
+preview = true
+# Markdown (docs, skills, plans) is authored by hand; ruff only formats Python.
+exclude = ["*.md"]
+docstring-code-format = true

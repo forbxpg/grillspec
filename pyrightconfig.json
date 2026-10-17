@@ -1,0 +1,34 @@
+{
+  "include": [
+    "src",
+    "tests",
+    "scripts"
+  ],
+  "pythonVersion": "3.11",
+  "venvPath": ".",
+  "venv": ".venv",
+  "typeCheckingMode": "recommended",
+  "reportMissingTypeStubs": false,
+  "reportUnnecessaryTypeIgnoreComment": "warning",
+  "executionEnvironments": [
+    {
+      "root": "tests",
+      "reportAny": false,
+      "reportPrivateUsage": false,
+      "reportUnusedCallResult": false,
+      "extraPaths": [
+        "tests",
+        "src"
+      ]
+    },
+    {
+      "root": "src"
+    },
+    {
+      "root": "scripts",
+      "extraPaths": [
+        "src"
+      ]
+    }
+  ]
+}

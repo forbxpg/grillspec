@@ -1,0 +1,15 @@
+version = 1
+
+[spec]
+backend = "{backend}"
+artifacts_language = "auto"
+
+[grill]
+depth = "standard"
+
+[council]
+enabled = "ask"
+members = []
+
+[gates]
+enabled = true

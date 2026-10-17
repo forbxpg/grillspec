@@ -1,0 +1,61 @@
+[project]
+name = "grillspec"
+version = "0.0.1"
+description = "Spec-driven agentic development: grill the user, write the spec, plan, execute. Skills and hooks for Claude Code, Cursor, Codex, Antigravity and GigaCode."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "forbxpg" }]
+requires-python = ">=3.11"
+keywords = ["agent-skills", "spec-driven-development", "claude-code", "codex", "cursor", "ai-agents", "tdd", "planning"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/forbxpg/grillspec"
+Issues = "https://github.com/forbxpg/grillspec/issues"
+
+[project.scripts]
+grillspec = "grillspec.cli:main"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40,<2",
+    "pytest>=9.1,<10",
+    "pytest-cov>=7.1,<8",
+    "ruff>=0.16.8,<0.17",
+]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/grillspec"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "--import-mode=importlib", "-ra"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["grillspec"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"skills" = "grillspec/_bundled/skills"
+"hooks" = "grillspec/_bundled/hooks"
+"templates" = "grillspec/_bundled/templates"
