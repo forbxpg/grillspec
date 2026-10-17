@@ -53,7 +53,7 @@ WorktreeManager.createSessionWorktree(projectDir, sessionId)
 ### 4. Keep Tracing Up
 **What value was passed?**
 - `projectDir = ''` (empty string!)
-- Empty string as `cwd` resolves to `process.cwd()`
+- `path.resolve('')` turns that into `process.cwd()` before it reaches `git init`
 - That's the source code directory!
 
 ### 5. Find Original Trigger

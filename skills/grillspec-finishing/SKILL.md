@@ -168,8 +168,10 @@ Step 2, from before that directory change.
 
 **If `GIT_DIR == GIT_COMMON`:** Normal repo, no worktree to clean up. Done.
 
-**If `WORKTREE_PATH` is under `.worktrees/` or `worktrees/`:** Superpowers
-created this worktree — we own cleanup:
+**If this session created `WORKTREE_PATH` with grillspec-worktrees' manual
+fallback** (record that in the ledger when you create it; being under
+`.worktrees/` or `worktrees/` is not enough, the user may have made it) — we own
+cleanup:
 
 ```bash
 git worktree remove "$WORKTREE_PATH"

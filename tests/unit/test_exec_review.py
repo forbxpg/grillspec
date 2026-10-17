@@ -79,14 +79,16 @@ def test_fenced_heading_does_not_cut_the_brief(project: Path):  # I1
     assert "1.2 Next" not in brief
 
 
-def test_relative_command_runs_from_root(project: Path):  # I2
+def test_relative_command_runs_from_root(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+):  # I2
     write(project / "tools/check.py", "raise SystemExit(0)\n")
     base = _git(project, "rev-parse", "HEAD")
+    sub = project / "openspec"
+    monkeypatch.chdir(sub)  # tools/check.py resolves only from the project root
     assert (
         main(["exec", "done", "1.2", base, "--", sys.executable, "tools/check.py"]) == 0
     )
-    script = project / "run_ok.py"
-    write(script, "")
     assert main(["exec", "done", "1.2", base, "--", "./missing.sh"]) == 1
 
 

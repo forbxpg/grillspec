@@ -17,7 +17,8 @@ description: Use when about to claim work is complete, fixed, or passing, before
 NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
-If you haven't run the verification command in this message, you cannot claim it passes.
+If you haven't run the verification command since your last relevant change, you
+cannot claim it passes. Report the command, its output and its exit status.
 
 ## The Gate Function
 

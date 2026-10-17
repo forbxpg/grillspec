@@ -56,6 +56,9 @@ task's red run, and no red run skipped for a task that owes one.
 NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 ```
 
+(For every task whose `Test:` line owes a red run — `scenario-first` and
+`reproduce-first`. `characterization` and `none` tasks follow the rules above.)
+
 Write code before the test? Delete it. Start over.
 
 **No exceptions:**
