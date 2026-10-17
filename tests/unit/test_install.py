@@ -39,7 +39,7 @@ def test_gigacode_project_install(tmp_path: Path):  # S1-R6-S1
     assert receipt["version"] == 1
     assert entry["scope"] == "project"
     assert ".gigacode/skills/using-grillspec/SKILL.md" in entry["files"]
-    assert entry["lines"] == [{"file": "GIGACODE.md", "line": IMPORT}]
+    assert entry["lines"] == [{"file": "GIGACODE.md", "line": IMPORT, "created": "yes"}]
     assert set(result.planned) >= {router, tmp_path / "GIGACODE.md"}
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -38,6 +39,25 @@ def _router_body() -> str:
     return rest.strip()
 
 
+def cli_command() -> str:
+    """Return how an agent on this machine should run the grillspec CLI.
+
+    From a plugin checkout that is the bundled launcher (which finds a suitable
+    Python itself); from an installed wheel it is the ``grillspec`` command.
+
+    Returns:
+        str - A command prefix, e.g. ``sh "/plugin/scripts/grillspec"``.
+
+    """
+    root = data_root()
+    launcher = root / "scripts" / "grillspec"
+    if not launcher.is_file():
+        return "grillspec"
+    if sys.platform == "win32":
+        return f'"{launcher.with_suffix(".cmd")}"'
+    return f'sh "{launcher}"'
+
+
 def session_context(root: Path) -> str:
     """Build what a session should know about grillspec when it starts.
 
@@ -55,12 +75,12 @@ def session_context(root: Path) -> str:
     warnings: list[str] = []
     try:
         parts.append(_router_body())
-    except OSError as error:
+    except (OSError, ValueError) as error:
         warnings.append(f"grillspec router unreadable: {error}")
     try:
         loaded = load_config(root)
         status = compute_status(root, loaded.config)
-        parts.append(status.line())
+        parts.append(f"{status.line()}\ngrillspec CLI: {cli_command()} <command>")
         warnings.extend((*loaded.warnings, *status.warnings))
     except Exception as error:  # ruff: ignore[blind-except] - a hook must never fail the session
         warnings.append(f"grillspec bootstrap failed: {type(error).__name__}: {error}")

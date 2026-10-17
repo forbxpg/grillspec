@@ -32,10 +32,24 @@ def test_mirror_reports_missing_and_heading_mismatch(tmp_path: Path):
     problems = compare(tmp_path / "en", tmp_path / "ru")
     assert "missing in ru: only-en.md" in problems
     assert "missing in en: sub/only-ru.md" in problems
-    assert "a.md: 2 headings in en, 1 in ru" in problems
+    assert "a.md: heading levels differ: en [1, 2], ru [1]" in problems
 
 
 def test_code_fences_are_not_headings(tmp_path: Path):
     write(tmp_path / "en/a.md", "# A\n```bash\n# comment\n```\n")
     write(tmp_path / "ru/a.md", "# Раздел\n")
     assert compare(tmp_path / "en", tmp_path / "ru") == []
+
+
+def test_nested_fences_hide_inner_hashes(tmp_path: Path):
+    en = "# A\n````markdown\n```bash\n# not a heading\n```\n# still inside\n````\n"
+    write(tmp_path / "en/a.md", en)
+    write(tmp_path / "ru/a.md", "# Раздел\n")
+    assert compare(tmp_path / "en", tmp_path / "ru") == []
+
+
+def test_heading_levels_must_match(tmp_path: Path):
+    write(tmp_path / "en/a.md", "# A\n## B\n### C\n")
+    write(tmp_path / "ru/a.md", "# Раздел\n### Пункт\n## Глава\n")
+    problems = compare(tmp_path / "en", tmp_path / "ru")
+    assert problems == ["a.md: heading levels differ: en [1, 2, 3], ru [1, 3, 2]"]

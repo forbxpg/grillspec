@@ -40,14 +40,16 @@ whatever the row.
 If a skill named here is not installed yet, tell the user which phase you are in
 and follow the phase by hand.
 
-No `.grillspec/config.toml` in the project? Use the `init` skill first.
+No `.grillspec/config.toml` in the project and the request is in row 2 or 3? Then
+offer the `init` skill once; if the user declines, grill in chat without files.
+Row-1 work never needs it.
 
 ## Where you are
 
 Each session starts with a line like
 `grillspec: phase=spec change=2026-10-17-login next=write and approve the spec`.
-When unsure, run `grillspec status` (or `python3 <plugin root>/scripts/grillspec.py
-status`). Phases: `idle`, `spec`, `plan`, `execute`, `done`.
+When unsure, run `grillspec status`, using the command on the `grillspec CLI:` line
+of the session-start context (or `uvx grillspec` where no plugin is installed). Phases: `idle`, `spec`, `plan`, `execute`, `done`.
 
 Approval of a spec or a plan comes only from an explicit reply from the user —
 never inferred from silence, from a "looks fine so far", or from your own review.

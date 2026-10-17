@@ -5,7 +5,8 @@
 
 1. тело скилла-роутера `using-grillspec`;
 2. одну строку статуса, например
-   `grillspec: phase=spec change=2026-10-17-login next=write and approve the spec`;
+   `grillspec: phase=spec change=2026-10-17-login next=write and approve the spec`,
+   и точную команду запуска CLI grillspec на этой машине;
 3. по строке `WARNING:` на каждую найденную проблему (неизвестный ключ конфига,
    нечитаемый файл состояния, отсутствующий Python).
 

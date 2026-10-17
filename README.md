@@ -12,8 +12,8 @@ remembering, writes a plan, and executes it with test-driven development and rev
 
 `grill → spec (+ memory) → plan → execute → archive`
 
-It works in **Claude Code, Cursor, Codex, Antigravity and GigaCode**, and needs
-Python 3.11+ for its hooks and CLI. Specs are written either OpenSpec-compatible
+It works in **Claude Code, Cursor, Codex, Antigravity and GigaCode**, on Linux, macOS
+and Windows, and needs Python 3.11–3.15 (found automatically) for its hooks and CLI. Specs are written either OpenSpec-compatible
 (living specs plus change deltas) or Superpowers-style (one design doc and one plan
 per change); you choose per project.
 

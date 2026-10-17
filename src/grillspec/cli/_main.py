@@ -14,7 +14,8 @@ from grillspec.config import Backend, ConfigError, load_config
 from grillspec.detect import available_clis, brownfield_signals, recommend_backend
 from grillspec.hooks import Harness, render_session_start, session_context
 from grillspec.init import init_project
-from grillspec.install import Scope, install, uninstall
+from grillspec.install import InstallConflictError, Scope, install, uninstall
+from grillspec.paths import project_root
 from grillspec.state import UnknownChangeError, compute_status, set_active
 
 if TYPE_CHECKING:
@@ -77,7 +78,11 @@ def _install(harness: str, scope: str, *, copy: bool, dry_run: bool) -> int:
 
     """
     result = install(
-        Harness(harness), Scope(scope), root=Path.cwd(), copy=copy, dry_run=dry_run
+        Harness(harness),
+        Scope(scope),
+        root=project_root(Path.cwd()),
+        copy=copy,
+        dry_run=dry_run,
     )
     if result.native_command is not None:
         return _print(f"{harness} has native plugins; run: {result.native_command}")
@@ -98,7 +103,7 @@ def _uninstall(harness: str, scope: str) -> int:
         int - Exit code.
 
     """
-    touched = uninstall(Harness(harness), Scope(scope), root=Path.cwd())
+    touched = uninstall(Harness(harness), Scope(scope), root=project_root(Path.cwd()))
     if not touched:
         return _print(f"nothing recorded for {harness} ({scope})")
     for path in touched:
@@ -179,7 +184,9 @@ def _hook(harness: str) -> int:
         int - Always 0: hooks are fail-open.
 
     """
-    payload = render_session_start(Harness(harness), session_context(Path.cwd()))
+    payload = render_session_start(
+        Harness(harness), session_context(project_root(Path.cwd()))
+    )
     _ = sys.stdout.write(payload + "\n")
     return 0
 
@@ -194,7 +201,7 @@ def _status(*, as_json: bool) -> int:
         int - Exit code.
 
     """
-    root = Path.cwd()
+    root = project_root(Path.cwd())
     loaded = load_config(root)
     status = compute_status(root, loaded.config)
     warnings = [*loaded.warnings, *status.warnings]
@@ -224,7 +231,7 @@ def _use(change_id: str) -> int:
         int - Exit code: 1 when the change is unknown or grillspec is not set up.
 
     """
-    root = Path.cwd()
+    root = project_root(Path.cwd())
     backend = load_config(root).config.backend
     if backend is None:
         _ = sys.stderr.write("grillspec is not set up here; run grillspec init\n")
@@ -284,6 +291,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     try:
         return handlers[cast("str", args.command)]()
-    except ConfigError as error:
+    except (ConfigError, InstallConflictError) as error:
         _ = sys.stderr.write(f"grillspec: {error}\n")
         return 1

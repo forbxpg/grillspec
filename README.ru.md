@@ -12,8 +12,8 @@ grillspec — библиотека скиллов и хуков для аген�
 
 `grill → spec (+ memory) → plan → execute → archive`
 
-Работает в **Claude Code, Cursor, Codex, Antigravity и GigaCode**; для хуков и CLI
-нужен Python 3.11+. Спеки пишутся либо в формате, совместимом с OpenSpec (живые спеки
+Работает в **Claude Code, Cursor, Codex, Antigravity и GigaCode**, на Linux, macOS и
+Windows; для хуков и CLI нужен Python 3.11–3.15 (находится автоматически). Спеки пишутся либо в формате, совместимом с OpenSpec (живые спеки
 и дельты изменений), либо в стиле Superpowers (один дизайн-документ и один план на
 изменение) — выбор делается для каждого проекта.
 

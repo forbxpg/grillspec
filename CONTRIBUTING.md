@@ -10,7 +10,9 @@ agent's behaviour, not by how much it adds.
   PRs are squash-merged; the PR title becomes the commit message.
 - No AI attribution in commits or PR descriptions (`Co-Authored-By: Claude`,
   "Generated with …"). CI rejects it. Use agents freely; credit is yours.
-- Runtime code is Python ≥ 3.11 with the standard library only.
+- Runtime code is Python 3.11–3.15 with the standard library only, and must work on
+  Linux, macOS and Windows. Skills, hooks and docs never call `python3` directly:
+  they go through `scripts/grillspec` / `scripts/grillspec.cmd`.
 - Every user-facing doc change lands in both `docs/en` and `docs/ru`.
 
 ## Set up
@@ -23,16 +25,17 @@ uv sync
 
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run basedpyright && uv run pytest
-python3 scripts/lint_skills.py
-python3 scripts/bump_version.py --check
-python3 scripts/check_docs_mirror.py
+uv run python scripts/lint_skills.py
+uv run python scripts/bump_version.py --check
+uv run python scripts/check_docs_mirror.py
 ```
 
 ## How work is planned here
 
-grillspec develops itself with grillspec. A change that involves a decision gets a
-spec in `docs/grillspec/specs/` and a plan in `docs/grillspec/plans/` before code.
-Typos, renames and other changes without a choice in them do not.
+grillspec develops itself with grillspec: a change that involves a decision is grilled,
+specced and planned before code. Those working documents stay with whoever writes them
+(`private/` is git-ignored); the PR description carries what reviewers need.
+Typos, renames and other changes without a choice in them need none of it.
 
 ## Changing a skill
 
@@ -54,11 +57,11 @@ Keep skill frontmatter to `name` and `description`, English only. The router
    `src/grillspec/hooks/_session_start.py`, a hook config under `hooks/`, and a branch
    in `hooks/run-hook.cmd` for the no-Python message.
 3. Add `skills/using-grillspec/references/<harness>-tools.md`.
-4. Add `tests/smoke/<harness>.sh` and record a run in `tests/smoke/README.md`.
+4. Add the harness to `tests/smoke/smoke.sh` and record a run in `tests/smoke/README.md`.
 
 ## Releasing (maintainer)
 
-1. `python3 scripts/bump_version.py X.Y.Z`, move `[Unreleased]` in `CHANGELOG.md` under
+1. `uv run python scripts/bump_version.py X.Y.Z`, move `[Unreleased]` in `CHANGELOG.md` under
    the new version, commit `chore: release X.Y.Z`.
 2. Run `claude plugin validate --strict .` locally.
 3. Tag `vX.Y.Z` and push the tag; the release workflow builds, publishes to PyPI and

@@ -1,9 +1,27 @@
 # Installation
 
-grillspec needs **Python 3.11 or newer** on the machine where the agent runs: its hooks
-and its CLI are Python, standard library only. Without it, grillspec still installs and
-its skills still load, but the hooks report "gates are OFF" instead of the session
-status (see [How the bootstrap works](how-it-works/bootstrap.md)).
+grillspec needs **Python 3.11 or newer** (3.11 to 3.15) on the machine where the agent
+runs: its hooks and its CLI are Python, standard library only. Without it, grillspec
+still installs and its skills still load, but the hooks report "gates are OFF" instead
+of the session status (see [How the bootstrap works](how-it-works/bootstrap.md)).
+
+## Which Python is used
+
+Machines often have several Pythons, and `python3` is not always the newest one — or,
+on Windows, not a real Python at all. grillspec never calls `python3` blindly. Its
+launchers (`scripts/grillspec` on Linux and macOS, `scripts/grillspec.cmd` on Windows)
+take the first candidate that is 3.11 or newer:
+
+1. the executable in `GRILLSPEC_PYTHON`, if you set it;
+2. on Linux and macOS: `python3.15` … `python3.11`, then `python3`, `python`, then the
+   `py` launcher (present under Git Bash on Windows);
+3. on Windows: `py -3.15` … `py -3.11`, then `python3`, `python`;
+4. `uv run --python ">=3.11"`, if `uv` is installed — it downloads a Python when none
+   fits.
+
+A machine with only Python 3.14, or with an old `python3` next to a newer `python3.13`,
+works without configuration. To pin one: `export GRILLSPEC_PYTHON=/path/to/python`
+(PowerShell: `$env:GRILLSPEC_PYTHON = "C:\Path\To\python.exe"`).
 
 ## Per harness
 

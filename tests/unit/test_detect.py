@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from typing import TYPE_CHECKING
 
 import pytest
@@ -73,3 +74,16 @@ def test_available_clis_reports_known_names():
         "agy",
         "gigacode",
     }
+
+
+def test_commit_count_ignores_parent_repository(tmp_path: Path):
+    parent = tmp_path / "outer"
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run([*git, "init", "-q", str(parent)], check=True)
+    subprocess.run(
+        [*git, "-C", str(parent), "commit", "-q", "--allow-empty", "-m", "x"],
+        check=True,
+    )
+    inner = parent / "plain"
+    inner.mkdir()
+    assert brownfield_signals(inner).commit_count == 0

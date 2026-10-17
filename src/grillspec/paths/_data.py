@@ -32,5 +32,30 @@ def template(name: str) -> str:
     Returns:
         str - The template text.
 
+    Raises:
+        ValueError: If the name is not a plain file name inside ``templates/``.
+
     """
+    if not name or name != Path(name).name or name in {".", ".."}:
+        msg = f"invalid template name: {name!r}"
+        raise ValueError(msg)
     return (data_root() / "templates" / name).read_text(encoding="utf-8")
+
+
+def project_root(start: Path) -> Path:
+    """Find the project a command run from ``start`` belongs to.
+
+    The nearest directory, ``start`` included, that holds a ``.grillspec/``
+    directory; ``start`` itself when none does (a project not set up yet).
+
+    Args:
+        start: Path - Directory the command runs in.
+
+    Returns:
+        Path - The project root.
+
+    """
+    for candidate in (start, *start.parents):
+        if (candidate / ".grillspec").is_dir():
+            return candidate
+    return start

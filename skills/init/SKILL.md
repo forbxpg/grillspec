@@ -8,8 +8,9 @@ description: Use when setting grillspec up in a project, when the user asks to i
 Setup touches files the user owns (`AGENTS.md`, `CLAUDE.md`, `GIGACODE.md`,
 `.gitignore`), so nothing is written before the user has seen it and said yes.
 
-`grillspec` below means the installed CLI, or `python3 <plugin root>/scripts/grillspec.py`
-when only the plugin is installed.
+`grillspec` below means the command on the `grillspec CLI:` line of your session-start
+context (the plugin's launcher, which finds a suitable Python on any OS), or
+`grillspec` / `uvx grillspec` when installed from PyPI.
 
 1. Run `grillspec detect --json`. Read `signals` and `recommended_backend`.
 2. Put the backend choice to the user, recommendation first and marked

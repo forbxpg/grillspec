@@ -1,29 +1,33 @@
-"""Check that docs/en and docs/ru have the same files and heading counts."""
+"""Check that docs/en and docs/ru have the same files and heading structure."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-def _headings(path: Path) -> int:
-    """Count Markdown headings outside fenced code blocks.
+from grillspec.markdown import lines_outside_fences
+
+MAX_LEVEL = 6
+
+
+def _levels(path: Path) -> list[int]:
+    """List heading levels of a Markdown file, ignoring fenced code blocks.
 
     Args:
         path: Path - Markdown file.
 
     Returns:
-        int - Number of ``#`` heading lines.
+        list[int] - Level of each ATX heading, in order.
 
     """
-    count = 0
-    fenced = False
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.startswith("```"):
-            fenced = not fenced
-        elif not fenced and line.startswith("#"):
-            count += 1
-    return count
+    levels: list[int] = []
+    for line in lines_outside_fences(path.read_text(encoding="utf-8")):
+        marks = len(line) - len(line.lstrip("#"))
+        if 1 <= marks <= MAX_LEVEL and line[marks : marks + 1] in {" ", ""}:
+            levels.append(marks)
+    return levels
 
 
 def _files(root: Path) -> set[str]:
@@ -54,9 +58,11 @@ def compare(en: Path, ru: Path) -> list[str]:
     problems = [f"missing in ru: {name}" for name in sorted(en_files - ru_files)]
     problems += [f"missing in en: {name}" for name in sorted(ru_files - en_files)]
     for name in sorted(en_files & ru_files):
-        en_count, ru_count = _headings(en / name), _headings(ru / name)
-        if en_count != ru_count:
-            problems.append(f"{name}: {en_count} headings in en, {ru_count} in ru")
+        en_levels, ru_levels = _levels(en / name), _levels(ru / name)
+        if en_levels != ru_levels:
+            problems.append(
+                f"{name}: heading levels differ: en {en_levels}, ru {ru_levels}"
+            )
     return problems
 
 

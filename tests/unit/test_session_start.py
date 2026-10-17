@@ -88,3 +88,10 @@ def test_malformed_config_is_warning_in_context(  # Review Focus 1
     assert code == 0
     assert "config.toml" in text
     assert "WARNING" in text
+
+
+def test_context_tells_how_to_run_the_cli(tmp_path: Path):
+    text = session_context(tmp_path)
+    line = next(line for line in text.splitlines() if line.startswith("grillspec CLI:"))
+    assert "scripts" in line
+    assert "grillspec" in line

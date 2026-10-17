@@ -5,7 +5,8 @@ grillspec puts three things into the agent's context:
 
 1. the body of the `using-grillspec` router skill;
 2. one status line, for example
-   `grillspec: phase=spec change=2026-10-17-login next=write and approve the spec`;
+   `grillspec: phase=spec change=2026-10-17-login next=write and approve the spec`,
+   and the exact command for running the grillspec CLI on this machine;
 3. one `WARNING:` line per problem found (an unknown config key, an unreadable state
    file, a missing Python).
 

@@ -20,7 +20,6 @@ VERSION_FILES = (
 )
 _PYPROJECT = re.compile(r'^(version = ")([^"]+)(")', re.MULTILINE)
 _PACKAGE = re.compile(r'^(__version__ = ")([^"]+)(")', re.MULTILINE)
-_JSON = re.compile(r'("version":\s*")([^"]+)(")')
 
 
 def _read_version(path: Path, relative: str) -> str:
@@ -76,6 +75,26 @@ def drift(root: Path) -> list[str]:
     return [f"{rel}: {value}" for rel, value in found.items() if value != expected]
 
 
+def _set_json_version(path: Path, version: str) -> None:
+    """Set the version a JSON manifest declares, by structure, not by text.
+
+    A marketplace file carries it in ``plugins[0].version``; a plugin manifest in
+    the top-level ``version``. Manifests are written as 2-space indented JSON.
+
+    Args:
+        path: Path - The manifest.
+        version: str - New version.
+
+    """
+    data = cast("dict[str, object]", json.loads(path.read_text(encoding="utf-8")))
+    if "plugins" in data:
+        cast("list[dict[str, object]]", data["plugins"])[0]["version"] = version
+    else:
+        data["version"] = version
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    _ = path.write_text(text, encoding="utf-8")
+
+
 def bump(root: Path, version: str) -> None:
     """Set one version everywhere.
 
@@ -86,13 +105,10 @@ def bump(root: Path, version: str) -> None:
     """
     for relative in VERSION_FILES:
         path = root / relative
-        pattern = (
-            _PYPROJECT
-            if relative == "pyproject.toml"
-            else _PACKAGE
-            if relative.endswith(".py")
-            else _JSON
-        )
+        if relative.endswith(".json"):
+            _set_json_version(path, version)
+            continue
+        pattern = _PYPROJECT if relative == "pyproject.toml" else _PACKAGE
         text = path.read_text(encoding="utf-8")
         _ = path.write_text(
             pattern.sub(rf"\g<1>{version}\g<3>", text, count=1), encoding="utf-8"

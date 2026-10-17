@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import shutil
 from pathlib import Path
 
@@ -43,3 +44,23 @@ def test_bump_aligns_all(tmp_path: Path):
     versions = bump_version.versions(root)
     assert set(versions.values()) == {"1.2.3"}
     assert set(versions) == set(bump_version.VERSION_FILES)
+
+
+def test_bump_targets_the_plugin_entry_whatever_the_key_order(tmp_path: Path):
+    root = repo_copy(tmp_path)
+    market = root / ".claude-plugin/marketplace.json"
+    entry = {"name": "grillspec", "version": "0.0.1"}
+    market.write_text(
+        json.dumps({"version": "9.9.9", "name": "grillspec", "plugins": [entry]})
+    )
+    bump_version.bump(root, "1.2.3")
+    data = json.loads(market.read_text())
+    assert data["plugins"][0]["version"] == "1.2.3"
+    assert data["version"] == "9.9.9"
+
+
+def test_bump_to_current_version_changes_nothing(tmp_path: Path):
+    root = repo_copy(tmp_path)
+    before = {rel: (root / rel).read_bytes() for rel in bump_version.VERSION_FILES}
+    bump_version.bump(root, bump_version.versions(root)["pyproject.toml"])
+    assert {rel: (root / rel).read_bytes() for rel in before} == before

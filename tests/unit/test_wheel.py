@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import tarfile
 import zipfile
 from pathlib import Path
 
@@ -25,3 +26,24 @@ def test_wheel_bundles_identical_data(tmp_path: Path):
                 member = f"grillspec/_bundled/{relative}"
                 assert member in names, member
                 assert archive.read(member) == source.read_bytes(), member
+
+
+def test_sdist_carries_plugin_files(tmp_path: Path):
+    subprocess.run(
+        ["uv", "build", "--sdist", "-q", "-o", str(tmp_path)], cwd=REPO, check=True
+    )
+    (sdist,) = tmp_path.glob("*.tar.gz")
+    with tarfile.open(sdist) as archive:
+        names = {name.split("/", 1)[1] for name in archive.getnames() if "/" in name}
+    expected = {
+        "skills/using-grillspec/SKILL.md",
+        "hooks/run-hook.cmd",
+        "hooks/hooks.json",
+        "hooks.json",
+        "templates/config.toml",
+        "scripts/grillspec",
+        "scripts/grillspec.cmd",
+        "scripts/grillspec.py",
+        ".claude-plugin/plugin.json",
+    }
+    assert expected <= names, sorted(expected - names)

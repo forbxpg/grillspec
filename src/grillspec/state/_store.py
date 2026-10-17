@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
+
+from grillspec.config import ConfigError
 
 from ._changes import list_changes
 
@@ -29,6 +32,32 @@ class UnknownChangeError(Exception):
         self.known: tuple[str, ...] = known
 
 
+def _active_from(data: object, path: Path) -> tuple[str | None, tuple[str, ...]]:
+    """Validate parsed ``state.json`` content and pick the active change.
+
+    Args:
+        data: object - Parsed JSON.
+        path: Path - The state file, for warnings.
+
+    Returns:
+        tuple[str | None, tuple[str, ...]] - The id (None when none is active)
+            and warnings; ``"active": null`` is a normal, quiet "none".
+
+    """
+    state = cast("dict[str, object]", data) if isinstance(data, dict) else None
+    if state is None:
+        problem = "not a JSON object"
+    elif type(state.get("version")) is not int or state.get("version") != 1:
+        problem = f"unsupported version {state.get('version')!r}"
+    elif "active" in state and state["active"] is None:
+        return None, ()
+    elif isinstance(state.get("active"), str):
+        return cast("str", state["active"]), ()
+    else:
+        problem = "no active change recorded"
+    return None, (f"{path}: {problem}; treating as no active change",)
+
+
 def active_change_id(root: Path) -> tuple[str | None, tuple[str, ...]]:
     """Read the active change id of this working tree.
 
@@ -47,14 +76,7 @@ def active_change_id(root: Path) -> tuple[str | None, tuple[str, ...]]:
         data = cast("object", json.loads(path.read_text(encoding="utf-8")))
     except (ValueError, OSError) as error:
         return None, (f"{path}: unreadable ({error}); treating as no active change",)
-    active = (
-        cast("dict[str, object]", data).get("active")
-        if isinstance(data, dict)
-        else None
-    )
-    if not isinstance(active, str):
-        return None, (f"{path}: no active change recorded; treating as none",)
-    return active, ()
+    return _active_from(data, path)
 
 
 def set_active(root: Path, change_id: str, backend: Backend) -> None:
@@ -67,13 +89,24 @@ def set_active(root: Path, change_id: str, backend: Backend) -> None:
 
     Raises:
         UnknownChangeError: If no change has this id.
+        ConfigError: If ``.grillspec`` is a symlink.
 
     """
     known = tuple(change.id for change in list_changes(root, backend))
     if change_id not in known:
         raise UnknownChangeError(change_id, known)
     path = root / STATE
+    if path.parent.is_symlink():
+        msg = (
+            f"{path.parent} is a symlink; refusing to write grillspec state through it"
+        )
+        raise ConfigError(msg)
     path.parent.mkdir(parents=True, exist_ok=True)
-    _ = path.write_text(
-        json.dumps({"version": 1, "active": change_id}) + "\n", encoding="utf-8"
-    )
+    # Write a sibling file and swap it in: an interrupted write never leaves a
+    # truncated state.json, and a symlink at state.json is replaced, not followed.
+    payload = json.dumps({"version": 1, "active": change_id}) + "\n"
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=path.parent, prefix=".state-", delete=False
+    ) as handle:
+        _ = handle.write(payload)
+    _ = Path(handle.name).replace(path)

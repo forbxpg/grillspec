@@ -1,0 +1,5 @@
+# The hook runner is read by cmd.exe and by POSIX shells: keep LF everywhere.
+hooks/run-hook.cmd text eol=lf
+*.sh text eol=lf
+scripts/grillspec text eol=lf
+scripts/grillspec.cmd text eol=lf

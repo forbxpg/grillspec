@@ -25,7 +25,7 @@ case "$HARNESS" in
   cursor) REPLY="$(cursor-agent -p "$PROMPT" 2>&1 || true)" ;;
   antigravity) REPLY="$(agy -p "$PROMPT" 2>&1 || true)" ;;
   gigacode)
-    python3 "$REPO/scripts/grillspec.py" install --harness gigacode >/dev/null
+    sh "$REPO/scripts/grillspec" install --harness gigacode >/dev/null
     REPLY="$(gigacode -p "$PROMPT" 2>&1 || true)"
     ;;
   *) echo "unknown harness: $HARNESS" >&2; exit 2 ;;

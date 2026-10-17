@@ -11,3 +11,8 @@ build/
 *.egg-info/
 .DS_Store
 tests/evals/results/
+
+# Private working material (specs, plans, ADRs, research) and local grillspec state:
+# never published.
+private/
+.grillspec/

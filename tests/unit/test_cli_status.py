@@ -73,5 +73,13 @@ def test_worktrees_have_independent_active(tmp_path: Path):  # S1-R3-S3
         ).stdout
         return json.loads(out)["change"]
 
-    assert active(main_tree) == "a"
-    assert active(other) == "b"
+    try:
+        assert active(main_tree) == "a"
+        assert active(other) == "b"
+    finally:
+        # Remove the worktree so pytest's tmp cleanup never trips over its .git
+        # file (a leaked scandir iterator becomes an error under -W error).
+        subprocess.run(
+            [*git, "-C", str(main_tree), "worktree", "remove", "--force", str(other)],
+            check=False,
+        )

@@ -13,24 +13,48 @@ from grillspec.config import Backend
 CODE_SUFFIXES = frozenset({
     ".c",
     ".cc",
+    ".clj",
     ".cpp",
     ".cs",
+    ".css",
+    ".dart",
+    ".erl",
+    ".ex",
+    ".exs",
     ".go",
+    ".groovy",
     ".h",
+    ".hs",
+    ".htm",
+    ".html",
     ".java",
+    ".jl",
     ".js",
     ".jsx",
     ".kt",
+    ".less",
+    ".lua",
+    ".m",
+    ".ml",
+    ".mm",
     ".php",
+    ".ps1",
     ".py",
+    ".r",
     ".rb",
     ".rs",
+    ".sass",
     ".scala",
+    ".scss",
     ".sh",
     ".sql",
+    ".svelte",
     ".swift",
+    ".tf",
     ".ts",
     ".tsx",
+    ".vue",
+    ".zig",
 })
 SKIPPED_DIRS = frozenset({".git", ".venv", "node_modules", "docs", "dist", "build"})
 LONG_HISTORY = 100
@@ -77,11 +101,13 @@ def _commit_count(root: Path) -> int:
         root: Path - Project root.
 
     Returns:
-        int - The count; 0 outside a repository or without git.
+        int - The count; 0 when the root is not itself a repository (a parent
+            repository's history does not count) or git is missing.
 
     """
     git = shutil.which("git")
-    if git is None:
+    # `git -C` walks up to a parent repository; only this project's history counts.
+    if git is None or not (root / ".git").exists():
         return 0
     # A fixed argv without a shell; the only variable is the -C directory value.
     # nosemgrep

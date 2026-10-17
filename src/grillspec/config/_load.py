@@ -166,11 +166,14 @@ def _read(path: Path) -> tuple[dict[str, object], list[str]]:
         return {}, []
     try:
         data: dict[str, object] = tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError as error:
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as error:
         msg = f"{path}: invalid TOML: {error}"
         raise ConfigError(msg) from error
+    except OSError as error:
+        msg = f"{path}: unreadable: {error}"
+        raise ConfigError(msg) from error
     version = data.pop("version", SUPPORTED_VERSION)
-    if version != SUPPORTED_VERSION:
+    if type(version) is not int or version != SUPPORTED_VERSION:
         msg = f"{path}: unsupported version {version!r}; this grillspec reads 1"
         raise ConfigError(msg)
     values: dict[str, object] = {}

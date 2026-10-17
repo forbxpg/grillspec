@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+from grillspec.markdown import lines_outside_fences
+
 from ._changes import list_changes
 from ._store import active_change_id
 
@@ -17,7 +19,21 @@ if TYPE_CHECKING:
 
     from ._changes import Change
 
-_UNCHECKED = re.compile(r"^\s*- \[ \]", re.MULTILINE)
+_UNCHECKED = re.compile(r"^\s*[-*+] \[ \]")
+_CHECKED = re.compile(r"^\s*[-*+] \[[xX]\]")
+
+
+def _printable(text: str) -> str:
+    r"""Escape characters a terminal would interpret, such as ESC sequences.
+
+    Args:
+        text: str - Repository-derived text, e.g. a change id.
+
+    Returns:
+        str - The text with non-printable characters as ``\xNN``.
+
+    """
+    return "".join(c if c.isprintable() else f"\\x{ord(c):02x}" for c in text)
 
 
 class Phase(StrEnum):
@@ -63,12 +79,16 @@ class Status:
             str - ``grillspec: phase=<phase> change=<id> next=<step>``.
 
         """
-        change = self.change_id or "-"
+        change = _printable(self.change_id or "-")
         return f"grillspec: phase={self.phase} change={change} next={self.next_step}"
 
 
 def derive_phase(change: Change | None) -> Phase:
     """Derive a change's phase from its approvals and plan checkboxes.
+
+    A spec or plan counts only when its file exists. Checkboxes inside fenced code
+    blocks are examples, not steps. A plan with no checkboxes at all is not a plan
+    yet, so the change stays in ``plan``.
 
     Args:
         change: Change | None - The active change, or None.
@@ -79,13 +99,16 @@ def derive_phase(change: Change | None) -> Phase:
     """
     if change is None:
         return Phase.IDLE
-    if change.spec_approved is None:
+    if change.spec_approved is None or change.spec_path is None:
         return Phase.SPEC
     if change.plan_approved is None or change.plan_path is None:
         return Phase.PLAN
-    if _UNCHECKED.search(change.plan_path.read_text(encoding="utf-8")):
+    lines = list(lines_outside_fences(change.plan_path.read_text(encoding="utf-8")))
+    if any(_UNCHECKED.match(line) for line in lines):
         return Phase.EXECUTE
-    return Phase.DONE
+    if any(_CHECKED.match(line) for line in lines):
+        return Phase.DONE
+    return Phase.PLAN
 
 
 def compute_status(root: Path, config: Config) -> Status:

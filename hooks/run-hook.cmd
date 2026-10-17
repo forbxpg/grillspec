@@ -6,23 +6,15 @@ REM Usage: run-hook.cmd <event> <harness>
 REM Fail-open: whatever happens, exit 0 so a broken install never blocks the agent.
 setlocal
 set "ROOT=%~dp0.."
-set "PY="
-py -3 -c "import sys; sys.exit(sys.version_info < (3, 11))" >nul 2>nul && set "PY=py -3"
-if not defined PY python -c "import sys; sys.exit(sys.version_info < (3, 11))" >nul 2>nul && set "PY=python"
-if not defined PY goto nopython
-%PY% "%ROOT%\scripts\grillspec.py" hook %1 --harness %2
-exit /b 0
-:nopython
+REM scripts\grillspec.cmd finds a Python 3.11+ and exits 127 when there is none.
+call "%ROOT%\scripts\grillspec.cmd" hook %1 --harness %2
+if not "%ERRORLEVEL%"=="127" exit /b 0
+REM No Python: report it in the harness's own shape. One-line ifs, no labels:
+REM cmd.exe mis-finds labels in LF files once they sit past a 512-byte boundary.
 set "MSG=WARNING: grillspec gates are OFF: python 3.11+ not found"
-if "%~2"=="cursor" goto cursor
-if "%~2"=="antigravity" goto antigravity
+if "%~2"=="cursor" echo {"additional_context": "%MSG%"}& exit /b 0
+if "%~2"=="antigravity" echo {"injectSteps": [{"systemMessage": {"systemMessage": "%MSG%"}}]}& exit /b 0
 echo {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "%MSG%"}}
-exit /b 0
-:cursor
-echo {"additional_context": "%MSG%"}
-exit /b 0
-:antigravity
-echo {"injectSteps": [{"systemMessage": {"systemMessage": "%MSG%"}}]}
 exit /b 0
 CMDBLOCK
 
@@ -34,13 +26,10 @@ esac
 ROOT="${HOOK_DIR%/*}"
 EVENT="$1"
 HARNESS="$2"
-for candidate in python3 python; do
-  if command -v "$candidate" >/dev/null 2>&1 &&
-    "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; then
-    "$candidate" "$ROOT/scripts/grillspec.py" hook "$EVENT" --harness "$HARNESS"
-    exit 0
-  fi
-done
+# scripts/grillspec finds a Python 3.11+ and exits 127 when there is none. Run it
+# through sh: packagers strip exec bits.
+sh "$ROOT/scripts/grillspec" hook "$EVENT" --harness "$HARNESS" 2>/dev/null
+[ "$?" -eq 127 ] || exit 0
 MSG='WARNING: grillspec gates are OFF: python 3.11+ not found'
 case "$HARNESS" in
   cursor) printf '{"additional_context": "%s"}\n' "$MSG" ;;

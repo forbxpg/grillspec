@@ -55,3 +55,25 @@ def test_router_over_150_lines_fails(tmp_path: Path):
 
 def test_repo_skills_pass():
     assert lint(REPO / "skills") == []
+
+
+def test_folder_without_skill_md_fails(tmp_path: Path):
+    skill(tmp_path, "alpha", "name: alpha\ndescription: d\n")
+    (tmp_path / "beta").mkdir()
+    assert any("beta" in error and "SKILL.md" in error for error in lint(tmp_path))
+
+
+def test_multiline_description_is_rejected(tmp_path: Path):
+    skill(tmp_path, "alpha", "name: alpha\ndescription: >-\n  folded text\n")
+    errors = lint(tmp_path)
+    assert any("single line" in error for error in errors)
+
+
+def test_empty_quoted_description_fails(tmp_path: Path):
+    skill(tmp_path, "alpha", 'name: alpha\ndescription: ""\n')
+    assert any("missing description" in error for error in lint(tmp_path))
+
+
+def test_quoted_values_are_unquoted(tmp_path: Path):
+    skill(tmp_path, "alpha", "name: \"alpha\"\ndescription: 'Use when x.'\n")
+    assert lint(tmp_path) == []

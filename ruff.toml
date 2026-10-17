@@ -45,6 +45,8 @@ required-imports = ["from __future__ import annotations"]
     "start-process-with-partial-path",
     "suspicious-subprocess-import",
 ]
+# One fixture keeps every test away from the developer's real user config.
+"tests/conftest.py" = ["pytest-fixture-autouse"]
 "scripts/**" = [
     "implicit-namespace-package",
     # Scripts call git with fixed argument lists, never a shell.
