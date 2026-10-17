@@ -70,7 +70,7 @@ MD
   printf 'version = 1\ngrilled = 2026-10-17\n' > .grillspec/changes/2026-10-17-webhooks.toml
   printf '{"version": 1, "active": "2026-10-17-webhooks"}\n' > .grillspec/state.json
 fi
-if [ "${1:-}" = specced ] || [ "${1:-}" = planned ]; then
+if [ "${1:-}" = specced ] || [ "${1:-}" = planned ] || [ "${1:-}" = done ]; then
   mkdir -p docs/grillspec/specs .grillspec/changes
   cat > docs/grillspec/specs/2026-10-17-webhooks.md <<'MD'
 # 2026-10-17-webhooks
@@ -107,7 +107,7 @@ MD
   printf '{"version": 1, "active": "2026-10-17-webhooks"}\n' > .grillspec/state.json
   printf '# Agents\n\n<!-- grillspec:begin -->\n## grillspec\n<!-- grillspec:end -->\n' > AGENTS.md
 fi
-if [ "${1:-}" = planned ]; then
+if [ "${1:-}" = planned ] || [ "${1:-}" = done ]; then
   mkdir -p docs/grillspec/plans
   cat > docs/grillspec/plans/2026-10-17-webhooks.md <<'MD'
 # 2026-10-17-webhooks — plan
@@ -139,5 +139,9 @@ Files: create src/retry.py; test tests/test_retry.py
 3. Run uv run pytest -q. Expected: PASS
 MD
   printf 'plan_approved = 2026-10-17\nexecutor = "inline"\n' >> .grillspec/changes/2026-10-17-webhooks.toml
+fi
+if [ "${1:-}" = done ]; then
+  sed -i.bak 's/^- \[ \] 1\.1/- [x] 1.1/' docs/grillspec/plans/2026-10-17-webhooks.md
+  rm -f docs/grillspec/plans/2026-10-17-webhooks.md.bak
 fi
 git add -A && git commit -qm init
