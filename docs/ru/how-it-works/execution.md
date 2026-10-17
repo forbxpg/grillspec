@@ -50,4 +50,5 @@ Superpowers 7.0.0 (см. `NOTICE`); grillspec переводит их на св�
 `grillspec-receiving-review`, а не соглашается рефлекторно. Когда все задачи отмечены
 и финальное ревью чистое, `grillspec-finishing` предлагает способы влить ветку
 (слияние, pull request, оставить как есть) и убирает worktree, созданные через
-`grillspec-worktrees`. Коммиты следуют правилам проекта из `AGENTS.md`.
+`grillspec-worktrees`. Коммиты следуют правилам проекта из `AGENTS.md`. Затем
+изменение архивируется (см. [Как работает архив](archive.md)).
