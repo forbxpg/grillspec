@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import sys
 from pathlib import Path
@@ -10,13 +11,21 @@ from typing import TYPE_CHECKING, cast
 
 from grillspec import __version__
 from grillspec.blocks import BlockError
-from grillspec.config import Backend, ConfigError, load_config
+from grillspec.config import Backend, ConfigError, Depth, load_config
 from grillspec.detect import available_clis, brownfield_signals, recommend_backend
 from grillspec.hooks import Harness, render_session_start, session_context
 from grillspec.init import init_project
 from grillspec.install import InstallConflictError, Scope, install, uninstall
 from grillspec.paths import project_root
-from grillspec.state import UnknownChangeError, compute_status, set_active
+from grillspec.state import (
+    ChangeError,
+    Stage,
+    UnknownChangeError,
+    approve,
+    compute_status,
+    create_change,
+    set_active,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -51,6 +60,15 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = init.add_argument("--dry-run", action="store_true", help="only list changes")
     detect = commands.add_parser("detect", help="brownfield signals and agent CLIs")
     _ = detect.add_argument("--json", action="store_true", help="print JSON")
+    new = commands.add_parser("new", help="start a change and its decision log")
+    _ = new.add_argument("slug", help="lowercase kebab-case name")
+    _ = new.add_argument(
+        "--switch", action="store_true", help="leave the active change"
+    )
+    _ = new.add_argument("--depth", choices=[str(d) for d in Depth])
+    _ = new.add_argument("--council", action="store_true", help="grill with a council")
+    approve_cmd = commands.add_parser("approve", help="record an approval")
+    _ = approve_cmd.add_argument("stage", choices=[str(s) for s in Stage])
     harnesses = [str(h) for h in Harness]
     scopes = [str(s) for s in Scope]
     inst = commands.add_parser("install", help="install skills into a harness")
@@ -62,6 +80,54 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = uninst.add_argument("--harness", required=True, choices=harnesses)
     _ = uninst.add_argument("--scope", choices=scopes, default=str(Scope.PROJECT))
     return parser
+
+
+def _new(slug: str, *, switch: bool, depth: str | None, council: bool) -> int:
+    """Create a change and print its id and decision-log path.
+
+    Args:
+        slug: str - Change name.
+        switch: bool - Allow leaving an unfinished active change.
+        depth: str | None - Grilling depth, or None for the configured default.
+        council: bool - Whether the grill consults a council.
+
+    Returns:
+        int - Exit code.
+
+    """
+    root = project_root(Path.cwd())
+    change = create_change(
+        root,
+        load_config(root).config,
+        slug,
+        today=dt.datetime.now().astimezone().date(),
+        switch=switch,
+        depth=Depth(depth) if depth else None,
+        council=council,
+    )
+    log = change.log_path.relative_to(root).as_posix() if change.log_path else "-"
+    return _print(f"created {change.id}; decision log: {log}")
+
+
+def _approve(stage: str) -> int:
+    """Record today's approval of a stage for the active change.
+
+    Args:
+        stage: str - ``grill``, ``spec`` or ``plan``.
+
+    Returns:
+        int - Exit code: 1 when grillspec is not set up or no change is active.
+
+    """
+    root = project_root(Path.cwd())
+    backend = load_config(root).config.backend
+    if backend is None:
+        _ = sys.stderr.write("grillspec is not set up here; run grillspec init\n")
+        return 1
+    sidecar = approve(
+        root, backend, Stage(stage), today=dt.datetime.now().astimezone().date()
+    )
+    return _print(f"approved {stage} for {sidecar.stem}")
 
 
 def _install(harness: str, scope: str, *, copy: bool, dry_run: bool) -> int:
@@ -211,6 +277,8 @@ def _status(*, as_json: bool) -> int:
             "phase": str(status.phase),
             "change": status.change_id,
             "next": status.next_step,
+            "open_questions": status.open_questions,
+            "log": status.log.as_posix() if status.log else None,
             "warnings": warnings,
         }
         _ = sys.stdout.write(json.dumps(payload) + "\n")
@@ -279,6 +347,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             cast("str", args.backend), dry_run=cast("bool", args.dry_run)
         ),
         "detect": lambda: _detect(as_json=cast("bool", args.json)),
+        "approve": lambda: _approve(cast("str", args.stage)),
+        "new": lambda: _new(
+            cast("str", args.slug),
+            switch=cast("bool", args.switch),
+            depth=cast("str | None", args.depth),
+            council=cast("bool", args.council),
+        ),
         "install": lambda: _install(
             cast("str", args.harness),
             cast("str", args.scope),
@@ -291,6 +366,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     try:
         return handlers[cast("str", args.command)]()
-    except (ConfigError, InstallConflictError) as error:
+    except (ConfigError, InstallConflictError, ChangeError) as error:
         _ = sys.stderr.write(f"grillspec: {error}\n")
         return 1

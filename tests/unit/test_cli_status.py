@@ -36,9 +36,11 @@ def test_status_json(
     data = json.loads(capsys.readouterr().out)
     assert data == {
         "version": 1,
-        "phase": "spec",
+        "phase": "grill",
         "change": CID,
-        "next": "write and approve the spec",
+        "next": "confirm the grill, then run grillspec approve grill",
+        "open_questions": 0,
+        "log": f"docs/grillspec/specs/{CID}.md",
         "warnings": [],
     }
 

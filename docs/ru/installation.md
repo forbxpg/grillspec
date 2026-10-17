@@ -63,7 +63,7 @@ uvx grillspec uninstall --harness gigacode
 
 ## Настройка проекта
 
-Попросите агента «set up grillspec in this repo». Скилл `init` порекомендует бэкенд
+Попросите агента «set up grillspec in this repo». Скилл `grillspec-init` порекомендует бэкенд
 спеков, покажет каждое изменение ваших файлов и запишет их только после вашего «да».
 То же из терминала:
 

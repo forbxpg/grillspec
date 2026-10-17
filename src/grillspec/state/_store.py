@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from grillspec.config import ConfigError
+from grillspec.paths import write_atomic
 
 from ._changes import list_changes
 
@@ -101,12 +101,4 @@ def set_active(root: Path, change_id: str, backend: Backend) -> None:
             f"{path.parent} is a symlink; refusing to write grillspec state through it"
         )
         raise ConfigError(msg)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Write a sibling file and swap it in: an interrupted write never leaves a
-    # truncated state.json, and a symlink at state.json is replaced, not followed.
-    payload = json.dumps({"version": 1, "active": change_id}) + "\n"
-    with tempfile.NamedTemporaryFile(
-        "w", encoding="utf-8", dir=path.parent, prefix=".state-", delete=False
-    ) as handle:
-        _ = handle.write(payload)
-    _ = Path(handle.name).replace(path)
+    write_atomic(path, json.dumps({"version": 1, "active": change_id}) + "\n")

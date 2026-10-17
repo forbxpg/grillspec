@@ -63,7 +63,7 @@ Edits you made to `GIGACODE.md` stay.
 
 ## Set up a project
 
-Ask the agent to "set up grillspec in this repo". The `init` skill recommends a spec
+Ask the agent to "set up grillspec in this repo". The `grillspec-init` skill recommends a spec
 backend, shows every change to your files, and writes only after you say yes. The same
 from the shell:
 

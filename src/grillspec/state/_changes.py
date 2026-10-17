@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from grillspec.config import Backend, ConfigError
+from grillspec.markdown import lines_outside_fences
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -19,6 +20,8 @@ _SPECS = Path("docs") / "grillspec" / "specs"
 _PLANS = Path("docs") / "grillspec" / "plans"
 _OPENSPEC_CHANGES = Path("openspec") / "changes"
 _ARCHIVE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
+_OPEN_ITEM = re.compile(r"^\s*[-*+] \[ \]")
+LOG_HEADING = "## Decision log"
 
 
 @dataclass(frozen=True)
@@ -31,6 +34,10 @@ class Change:
         plan_path: Path | None - The plan artifact, when written.
         spec_approved: dt.date | None - When the user approved the spec.
         plan_approved: dt.date | None - When the user approved the plan.
+        grilled: dt.date | None - When the user confirmed the grill's shared
+            understanding.
+        log_path: Path | None - The decision log, when written: the spec file
+            (superpowers) or ``design.md`` (OpenSpec).
 
     """
 
@@ -39,6 +46,8 @@ class Change:
     plan_path: Path | None
     spec_approved: dt.date | None
     plan_approved: dt.date | None
+    grilled: dt.date | None = None
+    log_path: Path | None = None
 
 
 def _existing(path: Path) -> Path | None:
@@ -70,6 +79,57 @@ def _artifacts(root: Path, backend: Backend, change_id: str) -> tuple[Path, Path
         return root / _SPECS / f"{change_id}.md", root / _PLANS / f"{change_id}.md"
     folder = root / _OPENSPEC_CHANGES / change_id
     return folder / "proposal.md", folder / "tasks.md"
+
+
+def log_path(root: Path, backend: Backend, change_id: str) -> Path:
+    """Return where a change's decision log lives in a backend.
+
+    Args:
+        root: Path - Project root.
+        backend: Backend - Spec backend.
+        change_id: str - Change id.
+
+    Returns:
+        Path - The spec file (superpowers) or ``design.md`` (OpenSpec); it may not
+            exist yet.
+
+    """
+    if backend is Backend.SUPERPOWERS:
+        return root / _SPECS / f"{change_id}.md"
+    return root / _OPENSPEC_CHANGES / change_id / "design.md"
+
+
+def open_questions(log: Path | None) -> int:
+    """Count the open questions in a decision log.
+
+    Open questions are unchecked list items inside the ``## Decision log``
+    section, outside fenced code blocks.
+
+    Args:
+        log: Path | None - The decision log, or None.
+
+    Returns:
+        int - The count; 0 without a log or without the section.
+
+    Raises:
+        ConfigError: If the log is not valid UTF-8.
+
+    """
+    if log is None or not log.is_file():
+        return 0
+    try:
+        text = log.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        msg = f"{log}: decision log is not UTF-8 ({error}); re-save it as UTF-8"
+        raise ConfigError(msg) from error
+    count = 0
+    inside = False
+    for line in lines_outside_fences(text):
+        if line.startswith("## "):
+            inside = line.strip() == LOG_HEADING
+        elif inside and _OPEN_ITEM.match(line):
+            count += 1
+    return count
 
 
 def _artifact_ids(root: Path, backend: Backend) -> Iterable[str]:
@@ -130,7 +190,7 @@ def _date(data: dict[str, object], key: str, sidecar: Path) -> dt.date | None:
     raise ConfigError(msg)
 
 
-def _read_sidecar(sidecar: Path) -> dict[str, object]:
+def read_sidecar(sidecar: Path) -> dict[str, object]:
     """Parse a sidecar, or return nothing when it does not exist.
 
     Args:
@@ -157,7 +217,7 @@ def _read_sidecar(sidecar: Path) -> dict[str, object]:
     return data
 
 
-def _archived_ids(root: Path, backend: Backend) -> set[str]:
+def archived_ids(root: Path, backend: Backend) -> set[str]:
     """List change ids OpenSpec has archived (``archive/YYYY-MM-DD-<id>``).
 
     Args:
@@ -189,11 +249,11 @@ def list_changes(root: Path, backend: Backend) -> tuple[Change, ...]:
     """
     ids = set(_artifact_ids(root, backend))
     ids.update(path.stem for path in (root / SIDECARS).glob("*.toml"))
-    ids -= _archived_ids(root, backend) - set(_artifact_ids(root, backend))
+    ids -= archived_ids(root, backend) - set(_artifact_ids(root, backend))
     changes: list[Change] = []
     for change_id in sorted(ids):
         sidecar = root / SIDECARS / f"{change_id}.toml"
-        data = _read_sidecar(sidecar)
+        data = read_sidecar(sidecar)
         spec, plan = _artifacts(root, backend, change_id)
         changes.append(
             Change(
@@ -202,6 +262,8 @@ def list_changes(root: Path, backend: Backend) -> tuple[Change, ...]:
                 plan_path=_existing(plan),
                 spec_approved=_date(data, "spec_approved", sidecar),
                 plan_approved=_date(data, "plan_approved", sidecar),
+                grilled=_date(data, "grilled", sidecar),
+                log_path=_existing(log_path(root, backend, change_id)),
             )
         )
     return tuple(changes)

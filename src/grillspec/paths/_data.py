@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 
 _PACKAGE = Path(__file__).resolve().parent.parent
@@ -59,3 +60,23 @@ def project_root(start: Path) -> Path:
         if (candidate / ".grillspec").is_dir():
             return candidate
     return start
+
+
+def write_atomic(path: Path, text: str) -> None:
+    """Replace a file's content atomically.
+
+    The text goes to a sibling temporary file that is then swapped in, so an
+    interrupted write never leaves a truncated file, and a symlink at ``path`` is
+    replaced rather than followed.
+
+    Args:
+        path: Path - File to write; its directory is created when missing.
+        text: str - New content, written as UTF-8.
+
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}-", delete=False
+    ) as handle:
+        _ = handle.write(text)
+    _ = Path(handle.name).replace(path)

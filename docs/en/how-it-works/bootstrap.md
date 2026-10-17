@@ -39,7 +39,7 @@ enabled, and to follow grillspec for planning until you do.
 ## The status line
 
 The line comes from `grillspec status`. The phase is derived, never stored: no active
-change → `idle`; spec not approved → `spec`; plan not approved → `plan`; unchecked
+change → `idle`; grill not confirmed → `grill`; spec not approved → `spec`; plan not approved → `plan`; unchecked
 plan steps → `execute`; all checked → `done`. Approvals live in
 `.grillspec/changes/<id>.toml`; the active change of this working tree lives in
 `.grillspec/state.json`, which git ignores, so each worktree has its own.

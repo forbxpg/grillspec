@@ -32,7 +32,7 @@ enabled = true
 |---|---|---|
 | `spec.backend` | unset until `init` | `openspec`: living specs in `openspec/specs/` plus a change folder per change. `superpowers`: one dated spec and one plan per change in `docs/grillspec/`. |
 | `spec.artifacts_language` | `auto` | Language of specs and plans. `auto` follows the project's existing docs, or the conversation in an empty repository. OpenSpec keywords stay English either way. |
-| `grill.depth` | `standard` | How deep grilling goes: `quick` asks in rounds with a budget of about 5 questions, `standard` one at a time with about 15, `deep` without a budget. |
+| `grill.depth` | `standard` | How deep grilling goes: `quick` asks in rounds with a budget of about 5 questions, `standard` one at a time with about 15, `deep` without a budget. A change starts in the `grill` phase (`grillspec new`) and leaves it with `grillspec approve grill`; see [How grilling works](how-it-works/grilling.md). |
 | `council.enabled` | `ask` | Whether grilling consults a council of independent perspectives; `ask` asks at the start of each grilling session. |
 | `council.members` | `[]` | Default council members. |
 | `gates.enabled` | `true` | Whether phase gates are active. |

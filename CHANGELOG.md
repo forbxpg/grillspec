@@ -16,6 +16,6 @@ release may break things and says so here.
 - Phases derived from artifacts and approvals; one active change per working tree.
 - Session-start bootstrap for Claude Code, Cursor, Codex and Antigravity through one
   fail-open hook runner; GigaCode bootstraps through `GIGACODE.md`.
-- `using-grillspec` router skill and `init` skill.
+- `using-grillspec` router skill and `grillspec-init` skill.
 - Plugin manifests for Claude Code, Cursor, Codex and Antigravity; a fallback installer
   with an exact uninstall.

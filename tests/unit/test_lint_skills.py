@@ -77,3 +77,10 @@ def test_empty_quoted_description_fails(tmp_path: Path):
 def test_quoted_values_are_unquoted(tmp_path: Path):
     skill(tmp_path, "alpha", "name: \"alpha\"\ndescription: 'Use when x.'\n")
     assert lint(tmp_path) == []
+
+
+def test_repo_skill_names_are_prefixed():
+    names = sorted(p.name for p in (REPO / "skills").iterdir() if p.is_dir())
+    assert all(n == "using-grillspec" or n.startswith("grillspec-") for n in names), (
+        names
+    )

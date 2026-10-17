@@ -16,7 +16,7 @@ decide which row applies:
 | The request | Do |
 |---|---|
 | has no choice between options: a typo, a rename, formatting, a fix whose cause and remedy are both certain | Just do it. |
-| has a decision but is small: one function or file, reversible, no new interface | Quick grill in chat: name the decision, give your recommendation, ask. No files. |
+| has a decision but is small: one function or file, reversible, no new interface | Ask in chat: name the decision, give your recommendation, ask. One question, no skill, no files. |
 | adds or changes a feature, module, interface, schema, infrastructure, or anything hard to reverse | Run the full pipeline below. |
 
 Unsure between two rows? Take the lower one. One extra question costs less than
@@ -31,29 +31,36 @@ whatever the row.
 
 | Phase | Skill | Leaves behind |
 |---|---|---|
-| grill | `grilling` | a decision log |
-| spec | `writing-specs`, then `extracting-memory` | an approved spec; approved memory entries |
-| plan | `writing-plans` | an approved plan |
+| grill | `grillspec-grill` | a decision log (Open / Settled), confirmed by the user |
+| spec | `grillspec-specs`, then `grillspec-memory` | an approved spec; approved memory entries |
+| plan | `grillspec-plans` | an approved plan |
 | execute | `subagent-driven-development` or `executing-plans`, with `test-driven-development`, `systematic-debugging`, `verification-before-completion` | code and green tests |
-| archive | `archiving-changes` | the change merged into the living specs, or marked implemented |
+| archive | `grillspec-archive` | the change merged into the living specs, or marked implemented |
 
 If a skill named here is not installed yet, tell the user which phase you are in
 and follow the phase by hand.
 
 No `.grillspec/config.toml` in the project and the request is in row 2 or 3? Then
-offer the `init` skill once; if the user declines, grill in chat without files.
+offer the `grillspec-init` skill once; if the user declines, ask in chat without files.
 Row-1 work never needs it.
 
 ## Where you are
 
 Each session starts with a line like
-`grillspec: phase=spec change=2026-10-17-login next=write and approve the spec`.
+`grillspec: phase=grill change=2026-10-17-login next=continue grilling: 3 open questions`.
 When unsure, run `grillspec status`, using the command on the `grillspec CLI:` line
-of the session-start context (or `uvx grillspec` where no plugin is installed). Phases: `idle`, `spec`, `plan`, `execute`, `done`.
+of the session-start context (or `uvx grillspec` where no plugin is installed). Phases: `idle`, `grill`, `spec`, `plan`,
+`execute`, `done`.
 
-Approval of a spec or a plan comes only from an explicit reply from the user —
+Confirming a grill and approving a spec or a plan come only from an explicit reply
+from the user —
 never inferred from silence, from a "looks fine so far", or from your own review.
-If the user insists on skipping a phase, do it, and say once what stays unverified.
+An explicit "no questions" or "just do it" is consent to proceed on your own
+judgment. Before you change any file, write the decisions you are taking for the
+user as a visible list headed "Assumptions" — in your reply, not only in your
+reasoning; one line each, with what to change if it is wrong. Then do the work,
+and repeat the list in your final message. "I'm in a hurry" alone is not that consent: still ask the one decision
+that matters most, with your recommendation.
 
 ## Facts and decisions
 
@@ -89,7 +96,7 @@ for its phase gates.
 | "This is obvious, I'll just build it." | Obvious is where unchecked assumptions live. Check the rule table. |
 | "I'll pick a sensible default." | Picking between options is a decision. Ask. |
 | "Let me explore the code first, then ask." | Decide the row first; looking things up is part of the grill. |
-| "The user is in a hurry." | Name the decision in one sentence and ask. |
+| "The user is in a hurry." | Ask the one decision that matters — unless they said no questions: then list your assumptions first and proceed. |
 | "They approved the idea, so the spec is approved." | Approval is an explicit reply to the written artifact. |
 
 ## Harness tools

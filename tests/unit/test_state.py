@@ -49,7 +49,7 @@ def make_change(
 
 
 ROWS: list[tuple[str, dict[str, object], Phase]] = [
-    ("spec", {}, Phase.SPEC),
+    ("grill", {}, Phase.GRILL),
     ("plan", {"spec_ok": True}, Phase.PLAN),
     ("plan-written", {"spec_ok": True, "plan": "- [ ] a\n"}, Phase.PLAN),
     (
@@ -90,9 +90,11 @@ def test_use_switches_active(tmp_path: Path):  # S1-R3-S2
     set_active(tmp_path, CID, Backend.SUPERPOWERS)
     assert active_change_id(tmp_path) == (CID, ())
     status = compute_status(tmp_path, Config(backend=Backend.SUPERPOWERS))
-    assert status.phase is Phase.SPEC
+    assert status.phase is Phase.GRILL
+    log = f"docs/grillspec/specs/{CID}.md"
     assert status.line() == (
-        f"grillspec: phase=spec change={CID} next=write and approve the spec"
+        f"grillspec: phase=grill change={CID}"
+        f" next=confirm the grill, then run grillspec approve grill log={log}"
     )
 
 

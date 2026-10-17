@@ -1,5 +1,5 @@
 ---
-name: init
+name: grillspec-init
 description: Use when setting grillspec up in a project, when the user asks to install or configure grillspec, or when grillspec status says to run init.
 ---
 

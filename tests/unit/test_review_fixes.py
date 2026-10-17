@@ -50,11 +50,13 @@ def test_corrupt_receipt_is_one_line_error(
 
 
 def test_install_refuses_to_overwrite_user_skill(tmp_path: Path):
-    mine = write(tmp_path / ".claude/skills/init/SKILL.md", "my own init skill\n")
+    mine = write(
+        tmp_path / ".claude/skills/using-grillspec/SKILL.md", "my own router\n"
+    )
     with pytest.raises(InstallConflictError) as info:
         install(Harness.CLAUDE, Scope.PROJECT, root=tmp_path, copy=True, dry_run=False)
     assert mine in info.value.paths
-    assert mine.read_text() == "my own init skill\n"
+    assert mine.read_text() == "my own router\n"
     assert not (tmp_path / ".grillspec/install-receipt.json").exists()
 
 
@@ -117,7 +119,7 @@ def test_router_offers_init_only_for_real_work():
         "No `.grillspec/config.toml` in the project? Use the `init` skill first."
         not in router
     )
-    assert "offer the `init` skill once" in router
+    assert "offer the `grillspec-init` skill once" in router
 
 
 def test_string_sidecar_dates_are_read(tmp_path: Path):
