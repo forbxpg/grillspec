@@ -74,3 +74,6 @@ project.
 
 Each entry names the change it came from. When a later spec contradicts an entry, the
 agent proposes retiring or replacing it, and does so only after your answer.
+
+After memory, the agent writes the implementation plan (see
+[How plans work](plans.md)).

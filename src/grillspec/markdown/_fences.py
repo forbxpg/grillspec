@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
 _OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 _CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
@@ -15,10 +15,8 @@ _CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 def numbered_lines_outside_fences(text: str) -> Iterator[tuple[int, str]]:
     """Yield the lines of a Markdown text outside fenced code blocks, numbered.
 
-    A fence opens with three or more backticks or tildes (indented at most three
-    spaces) and closes with a line of the same character, at least as long, indented
-    at most three spaces, and nothing else. An unclosed fence runs to the end of the
-    text, as in CommonMark.
+    Lines are split with ``str.splitlines``; use ``numbered_outside`` to keep a
+    caller's own split.
 
     Args:
         text: str - Markdown text.
@@ -27,8 +25,26 @@ def numbered_lines_outside_fences(text: str) -> Iterator[tuple[int, str]]:
         tuple[int, str] - 1-based line number and line, fence lines excluded.
 
     """
+    yield from numbered_outside(text.splitlines())
+
+
+def numbered_outside(lines: Sequence[str]) -> Iterator[tuple[int, str]]:
+    """Yield already-split Markdown lines outside fenced code blocks, numbered.
+
+    A fence opens with three or more backticks or tildes (indented at most three
+    spaces) and closes with a line of the same character, at least as long, indented
+    at most three spaces, and nothing else. An unclosed fence runs to the end of the
+    text, as in CommonMark.
+
+    Args:
+        lines: Sequence[str] - The text's lines, in order.
+
+    Yields:
+        tuple[int, str] - 1-based line number and line, fence lines excluded.
+
+    """
     fence: str | None = None
-    for number, line in enumerate(text.splitlines(), 1):
+    for number, line in enumerate(lines, 1):
         if fence is None:
             opened = _OPEN.match(line)
             if opened:

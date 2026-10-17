@@ -13,7 +13,7 @@ from grillspec.config import ConfigError
 from grillspec.paths import write_atomic
 
 from ._changes import SIDECARS, read_sidecar
-from ._hash import artifact_hash
+from ._hash import artifact_hash, plan_hash
 from ._store import active_change_id
 
 if TYPE_CHECKING:
@@ -109,7 +109,14 @@ def write_sidecar(path: Path, data: Mapping[str, object]) -> None:
     write_atomic(path, text)
 
 
-def approve(root: Path, backend: Backend, stage: Stage, *, today: dt.date) -> Path:
+def approve(
+    root: Path,
+    backend: Backend,
+    stage: Stage,
+    *,
+    today: dt.date,
+    executor: str | None = None,
+) -> Path:
     """Record that the user approved a stage of the active change.
 
     Args:
@@ -117,6 +124,7 @@ def approve(root: Path, backend: Backend, stage: Stage, *, today: dt.date) -> Pa
         backend: Backend - Spec backend (decides which files the spec hash covers).
         stage: Stage - What was approved.
         today: dt.date - Approval date.
+        executor: str | None - For the plan: ``subagent`` or ``inline``.
 
     Returns:
         Path - The sidecar written.
@@ -134,5 +142,9 @@ def approve(root: Path, backend: Backend, stage: Stage, *, today: dt.date) -> Pa
     data[_KEYS[stage]] = today
     if stage is Stage.SPEC:
         data["spec_hash"] = artifact_hash(root, backend, change_id)
+    if stage is Stage.PLAN:
+        data["plan_hash"] = plan_hash(root, backend, change_id)
+        if executor is not None:
+            data["executor"] = executor
     write_sidecar(sidecar, data)
     return sidecar

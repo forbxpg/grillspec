@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, cast
 from grillspec.config import Backend, ConfigError
 from grillspec.markdown import lines_outside_fences
 
-from ._hash import artifact_hash
+from ._hash import artifact_hash, plan_hash
 from ._layout import OPENSPEC_CHANGES as _OPENSPEC_CHANGES
 from ._layout import PLANS as _PLANS
 from ._layout import SPECS as _SPECS
@@ -43,6 +43,10 @@ class Change:
             (superpowers) or ``design.md`` (OpenSpec).
         spec_stale: bool - The spec changed since it was approved (its
             ``spec_hash`` no longer matches).
+        plan_stale: bool - The plan changed since it was approved, ticked boxes
+            aside.
+        plan_checked: bool - A box in the plan is ticked (outside fences).
+        executor: str | None - ``subagent`` or ``inline``, as chosen at approval.
 
     """
 
@@ -54,6 +58,9 @@ class Change:
     grilled: dt.date | None = None
     log_path: Path | None = None
     spec_stale: bool = False
+    plan_stale: bool = False
+    plan_checked: bool = False
+    executor: str | None = None
 
 
 def _existing(path: Path) -> Path | None:
@@ -179,6 +186,34 @@ def _date(data: dict[str, object], key: str, sidecar: Path) -> dt.date | None:
 
 
 _HASH = re.compile(r"sha256:[0-9a-f]{64}")
+_TICKED = re.compile(r"^\s*[-*+] \[[xX]\]")
+
+
+EXECUTORS = ("subagent", "inline")
+
+
+def fingerprint(data: dict[str, object], key: str, sidecar: Path) -> str | None:
+    """Read an approved artifact's fingerprint from a sidecar.
+
+    Args:
+        data: dict[str, object] - Parsed sidecar.
+        key: str - ``spec_hash`` or ``plan_hash``.
+        sidecar: Path - The sidecar file, for the error message.
+
+    Returns:
+        str | None - ``sha256:<hex>``, or None when the key is absent.
+
+    Raises:
+        ConfigError: If the value is not ``sha256:`` and 64 hex digits.
+
+    """
+    value = data.get(key)
+    if value is None:
+        return None
+    if isinstance(value, str) and _HASH.fullmatch(value):
+        return value
+    msg = f"{sidecar}: {key} must be sha256:<64 hex digits>, got {value!r}"
+    raise ConfigError(msg)
 
 
 def spec_hash(data: dict[str, object], sidecar: Path) -> str | None:
@@ -191,17 +226,45 @@ def spec_hash(data: dict[str, object], sidecar: Path) -> str | None:
     Returns:
         str | None - ``sha256:<hex>``, or None when the key is absent.
 
+    """
+    return fingerprint(data, "spec_hash", sidecar)
+
+
+def executor(data: dict[str, object], sidecar: Path) -> str | None:
+    """Read the chosen executor from a sidecar.
+
+    Args:
+        data: dict[str, object] - Parsed sidecar.
+        sidecar: Path - The sidecar file, for the error message.
+
+    Returns:
+        str | None - ``subagent`` or ``inline``, or None when not chosen.
+
     Raises:
-        ConfigError: If the value is not ``sha256:`` and 64 hex digits.
+        ConfigError: If the value is anything else.
 
     """
-    value = data.get("spec_hash")
-    if value is None:
-        return None
-    if isinstance(value, str) and _HASH.fullmatch(value):
-        return value
-    msg = f"{sidecar}: spec_hash must be sha256:<64 hex digits>, got {value!r}"
+    value = data.get("executor")
+    if value is None or value in EXECUTORS:
+        return cast("str | None", value)
+    msg = f"{sidecar}: executor must be subagent or inline, got {value!r}"
     raise ConfigError(msg)
+
+
+def _checked(plan: Path | None) -> bool:
+    """Tell whether any box in a plan is ticked, outside fenced blocks.
+
+    Args:
+        plan: Path | None - The plan file, or None.
+
+    Returns:
+        bool - True when a ticked box exists.
+
+    """
+    if plan is None:
+        return False
+    text = plan.read_bytes().decode("utf-8", "replace")
+    return any(_TICKED.match(line) for line in lines_outside_fences(text))
 
 
 def read_sidecar(sidecar: Path) -> dict[str, object]:
@@ -269,6 +332,24 @@ def _stale(root: Path, backend: Backend, change_id: str, approved: str | None) -
     return artifact_hash(root, backend, change_id) != approved
 
 
+def _plan_stale(
+    root: Path, backend: Backend, change_id: str, approved: str | None
+) -> bool:
+    """Tell whether an approved plan changed since its approval.
+
+    Args:
+        root: Path - Project root.
+        backend: Backend - Spec backend.
+        change_id: str - Change id.
+        approved: str | None - The fingerprint recorded at approval.
+
+    Returns:
+        bool - True when a fingerprint was recorded and no longer matches.
+
+    """
+    return approved is not None and plan_hash(root, backend, change_id) != approved
+
+
 def list_changes(root: Path, backend: Backend) -> tuple[Change, ...]:
     """List every change in the project, sorted by id.
 
@@ -298,6 +379,11 @@ def list_changes(root: Path, backend: Backend) -> tuple[Change, ...]:
                 grilled=_date(data, "grilled", sidecar),
                 log_path=_existing(log_path(root, backend, change_id)),
                 spec_stale=_stale(root, backend, change_id, spec_hash(data, sidecar)),
+                plan_stale=_plan_stale(
+                    root, backend, change_id, fingerprint(data, "plan_hash", sidecar)
+                ),
+                plan_checked=_checked(_existing(plan)),
+                executor=executor(data, sidecar),
             )
         )
     return tuple(changes)

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from typing import TYPE_CHECKING
 
 from grillspec.config import Backend
 
-from ._layout import OPENSPEC_CHANGES, log_path
+from ._layout import OPENSPEC_CHANGES, log_path, plan_path
+
+_CHECKED_BOX = re.compile(r"^(\s*[-*]\s*)\[[xX]\]", re.MULTILINE)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -70,6 +73,28 @@ def artifact_hash(root: Path, backend: Backend, change_id: str) -> str:
     digest = hashlib.sha256()
     for path in spec_files(root, backend, change_id):
         text = path.read_bytes().decode("utf-8", "replace")
+        digest.update(path.relative_to(root).as_posix().encode() + b"\0")
+        digest.update(_normalised(text).encode() + b"\0")
+    return f"sha256:{digest.hexdigest()}"
+
+
+def plan_hash(root: Path, backend: Backend, change_id: str) -> str:
+    """Fingerprint a change's plan, ignoring which boxes are ticked.
+
+    Args:
+        root: Path - Project root.
+        backend: Backend - Spec backend.
+        change_id: str - Change id.
+
+    Returns:
+        str - ``sha256:<hex>`` over the plan's relative path and its normalised
+            text with every box reset to ``[ ]``, so execution keeps it valid.
+
+    """
+    digest = hashlib.sha256()
+    path = plan_path(root, backend, change_id)
+    if path.is_file():
+        text = _CHECKED_BOX.sub(r"\1[ ]", path.read_bytes().decode("utf-8", "replace"))
         digest.update(path.relative_to(root).as_posix().encode() + b"\0")
         digest.update(_normalised(text).encode() + b"\0")
     return f"sha256:{digest.hexdigest()}"

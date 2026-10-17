@@ -8,6 +8,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from grillspec.markdown import lines_outside_fences
+from grillspec.paths import data_root
 
 from ._changes import list_changes, open_questions
 from ._store import active_change_id
@@ -47,6 +48,11 @@ class Phase(StrEnum):
     DONE = "done"
 
 
+PLAN_STALE_NEXT = "plan changed since approval: review it, then grillspec approve plan"
+EXECUTOR_SKILLS = {
+    "subagent": "grillspec-subagent-execution",
+    "inline": "grillspec-inline-execution",
+}
 STALE_NEXT = "spec changed since approval: review it, then grillspec approve spec"
 _NEXT = {
     Phase.IDLE: "start a change with the grillspec-grill skill",
@@ -136,9 +142,27 @@ def derive_phase(change: Change | None) -> Phase:
         or (change.spec_stale and change.plan_approved is None)
     ):
         return Phase.SPEC
+    return _after_spec(change)
+
+
+def _after_spec(change: Change) -> Phase:
+    """Derive the phase of a change whose spec is approved and current.
+
+    Args:
+        change: Change - The change.
+
+    Returns:
+        Phase - ``plan`` until the plan is approved (and again when it changed
+            before any task was ticked), then ``execute`` or ``done``; a changed
+            plan is never ``done``, so deleting the open tasks cannot finish it.
+
+    """
     if change.plan_approved is None or change.plan_path is None:
         return Phase.PLAN
-    return _plan_progress(change.plan_path)
+    if change.plan_stale and not change.plan_checked:
+        return Phase.PLAN
+    progress = _plan_progress(change.plan_path)
+    return Phase.EXECUTE if change.plan_stale and progress is Phase.DONE else progress
 
 
 def compute_status(root: Path, config: Config) -> Status:
@@ -170,6 +194,15 @@ def compute_status(root: Path, config: Config) -> Status:
             next_step = STALE_NEXT
         else:
             warnings = (*warnings, "spec changed after approval")
+    if change is not None and change.plan_stale:
+        if phase is Phase.PLAN:
+            next_step = PLAN_STALE_NEXT
+        else:
+            warnings = (*warnings, "plan changed after approval")
+    if change is not None and phase is Phase.EXECUTE and change.executor:
+        skill = EXECUTOR_SKILLS[change.executor]
+        if (data_root() / "skills" / skill / "SKILL.md").is_file():
+            next_step = f"execute the plan with {skill}"
     relative = log.relative_to(root) if log else None
     return Status(
         phase, change.id if change else None, next_step, warnings, count, relative

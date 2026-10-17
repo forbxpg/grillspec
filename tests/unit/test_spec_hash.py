@@ -37,7 +37,20 @@ The sender SHALL reject a burst over the limit.
 - **WHEN** 11 deliveries arrive within a second
 - **THEN** the eleventh is rejected
 """
-PLAN = "# Plan\n\n- [ ] **Step 1:** do it\n"
+PLAN = f"""# {ID} — plan
+
+**Spec:** docs/grillspec/specs/{ID}.md
+
+## 1. Limiter
+
+- [ ] 1.1 Burst limit — verify: pytest passes
+
+Covers: RL-1 · Test: scenario-first
+
+Files: create src/limit.py
+
+1. Write the test. Expected: FAIL
+"""
 
 
 @pytest.fixture

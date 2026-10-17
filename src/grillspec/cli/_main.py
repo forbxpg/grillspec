@@ -36,7 +36,13 @@ from grillspec.memory import (
     retire_entry,
 )
 from grillspec.paths import project_root, write_atomic
-from grillspec.specs import Report, openspec_advice, validate_change
+from grillspec.specs import (
+    Finding,
+    Report,
+    openspec_advice,
+    plan_report,
+    validate_change,
+)
 from grillspec.state import (
     ChangeError,
     Stage,
@@ -46,6 +52,7 @@ from grillspec.state import (
     compute_status,
     create_change,
     list_changes,
+    plan_path,
     set_active,
 )
 
@@ -137,6 +144,9 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = check.add_argument("--json", action="store_true", help="print JSON")
     approve_cmd = commands.add_parser("approve", help="record an approval")
     _ = approve_cmd.add_argument("stage", choices=[str(s) for s in Stage])
+    _ = approve_cmd.add_argument(
+        "--executor", choices=["subagent", "inline"], help="plan: how to execute it"
+    )
     harnesses = [str(h) for h in Harness]
     scopes = [str(s) for s in Scope]
     inst = commands.add_parser("install", help="install skills into a harness")
@@ -185,7 +195,8 @@ def _plan_refusal(root: Path, backend: Backend) -> str | None:
         backend: Backend - Spec backend.
 
     Returns:
-        str | None - The reason, or None when the approved spec is current.
+        str | None - The reason, or None when the approved spec is current, the
+            plan exists and no task is ticked yet.
 
     """
     change_id, _ = active_change_id(root)
@@ -196,17 +207,42 @@ def _plan_refusal(root: Path, backend: Backend) -> str | None:
         return "approve the spec first: grillspec approve spec"
     if change.spec_stale:
         return "spec changed since approval: review it, then grillspec approve spec"
+    if change.plan_path is None:
+        where = plan_path(root, backend, change.id).relative_to(root).as_posix()
+        return f"no plan at {where}; write it first"
+    # Re-approving an edited plan mid-execution keeps its ticks: the hash ignores
+    # them. Only a first approval must start from an unticked plan.
+    if change.plan_checked and change.plan_approved is None:
+        return "uncheck the plan's tasks before approving it"
     return None
 
 
-def _approve(stage: str) -> int:
+def _refuse(findings: Sequence[Finding]) -> int:
+    """Print blocking findings and the one-line verdict.
+
+    Args:
+        findings: Sequence[Finding] - The errors.
+
+    Returns:
+        int - Exit code 1.
+
+    """
+    for finding in findings:
+        _ = sys.stderr.write(finding.text() + "\n")
+    _ = sys.stderr.write("grillspec: fix these, then approve again\n")
+    return 1
+
+
+def _approve(stage: str, executor: str | None = None) -> int:
     """Record today's approval of a stage for the active change.
 
     Args:
         stage: str - ``grill``, ``spec`` or ``plan``.
+        executor: str | None - For the plan: ``subagent`` or ``inline``.
 
     Returns:
-        int - Exit code: 1 when grillspec is not set up or no change is active.
+        int - Exit code: 1 when grillspec is not set up, no change is active, or
+            the spec or plan is not ready to approve.
 
     """
     root = project_root(Path.cwd())
@@ -214,22 +250,30 @@ def _approve(stage: str) -> int:
     if backend is None:
         _ = sys.stderr.write("grillspec is not set up here; run grillspec init\n")
         return 1
+    change_id, _ = active_change_id(root)
     if Stage(stage) is Stage.PLAN:
         refusal = _plan_refusal(root, backend)
         if refusal is not None:
             _ = sys.stderr.write(f"grillspec: {refusal}\n")
             return 1
-    if Stage(stage) is Stage.SPEC:
-        change_id, _ = active_change_id(root)
         if change_id is not None:
-            report = validate_change(root, backend, change_id)
-            if report.errors:
-                for finding in report.errors:
-                    _ = sys.stderr.write(finding.text() + "\n")
-                _ = sys.stderr.write("grillspec: fix these, then approve again\n")
-                return 1
+            errors = [
+                f
+                for f in plan_report(root, backend, change_id)
+                if f.severity == "error"
+            ]
+            if errors:
+                return _refuse(errors)
+    if Stage(stage) is Stage.SPEC and change_id is not None:
+        report = validate_change(root, backend, change_id, include_plan=False)
+        if report.errors:
+            return _refuse(report.errors)
     sidecar = approve(
-        root, backend, Stage(stage), today=dt.datetime.now().astimezone().date()
+        root,
+        backend,
+        Stage(stage),
+        today=dt.datetime.now().astimezone().date(),
+        executor=executor if Stage(stage) is Stage.PLAN else None,
     )
     return _print(f"approved {stage} for {sidecar.stem}")
 
@@ -686,7 +730,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "validate": lambda: _validate(
             cast("str | None", args.change_id), as_json=cast("bool", args.json)
         ),
-        "approve": lambda: _approve(cast("str", args.stage)),
+        "approve": lambda: _approve(
+            cast("str", args.stage), cast("str | None", args.executor)
+        ),
         "memory": lambda: _memory(args),
         "council": lambda: _council_ask(
             cast("str | None", args.members),
