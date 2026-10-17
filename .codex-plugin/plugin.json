@@ -1,0 +1,21 @@
+{
+  "name": "grillspec",
+  "version": "0.0.1",
+  "description": "Spec-driven agentic development: grill the user until nothing is guessed, write the spec, plan, then execute with TDD.",
+  "author": { "name": "forbxpg", "url": "https://github.com/forbxpg" },
+  "homepage": "https://github.com/forbxpg/grillspec",
+  "repository": "https://github.com/forbxpg/grillspec",
+  "license": "MIT",
+  "keywords": ["spec-driven-development","planning","grilling","tdd","skills","workflow"],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks-codex.json",
+  "interface": {
+    "displayName": "grillspec",
+    "shortDescription": "Grill, spec, plan, execute: spec-driven development for coding agents",
+    "developerName": "forbxpg",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": ["Let's add a feature to this project.", "Set up grillspec in this repo."],
+    "websiteURL": "https://github.com/forbxpg/grillspec"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "grillspec",
+  "description": "grillspec: spec-driven agentic development",
+  "owner": { "name": "forbxpg" },
+  "plugins": [
+    {
+      "name": "grillspec",
+      "description": "Spec-driven agentic development: grill the user until nothing is guessed, write the spec, plan, then execute with TDD.",
+      "version": "0.0.1",
+      "source": "./",
+      "author": { "name": "forbxpg" }
+    }
+  ]
+}

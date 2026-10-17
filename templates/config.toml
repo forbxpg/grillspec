@@ -1,7 +1,7 @@
 version = 1
 
 [spec]
-backend = "{backend}"
+backend = "__BACKEND__"
 artifacts_language = "auto"
 
 [grill]

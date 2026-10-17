@@ -1,0 +1,10 @@
+{
+  "grillspec-bootstrap": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "./hooks/run-hook.cmd session-start antigravity"
+      }
+    ]
+  }
+}
