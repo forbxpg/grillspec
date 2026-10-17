@@ -102,3 +102,15 @@ def set_active(root: Path, change_id: str, backend: Backend) -> None:
         )
         raise ConfigError(msg)
     write_atomic(path, json.dumps({"version": 1, "active": change_id}) + "\n")
+
+
+def clear_active(root: Path) -> None:
+    """Forget the active change of this working tree.
+
+    Args:
+        root: Path - Project root.
+
+    """
+    path = root / STATE
+    if path.is_file():
+        write_atomic(path, json.dumps({"version": 1, "active": None}) + "\n")

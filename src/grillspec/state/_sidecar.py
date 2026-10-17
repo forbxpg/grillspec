@@ -148,3 +148,22 @@ def approve(
             data["executor"] = executor
     write_sidecar(sidecar, data)
     return sidecar
+
+
+def mark_archived(root: Path, change_id: str, *, today: dt.date) -> Path:
+    """Record that a change was archived.
+
+    Args:
+        root: Path - Project root.
+        change_id: str - Change id.
+        today: dt.date - Archive date.
+
+    Returns:
+        Path - The sidecar written.
+
+    """
+    sidecar = root / SIDECARS / f"{change_id}.toml"
+    data = dict(read_sidecar(sidecar))
+    data["archived"] = today
+    write_sidecar(sidecar, data)
+    return sidecar

@@ -7,8 +7,8 @@ from ._create import create_change
 from ._hash import artifact_hash, plan_hash, spec_files
 from ._layout import log_path, plan_path
 from ._phase import Phase, Status, compute_status, derive_phase
-from ._sidecar import ChangeError, Stage, approve, write_sidecar
-from ._store import UnknownChangeError, active_change_id, set_active
+from ._sidecar import ChangeError, Stage, approve, mark_archived, write_sidecar
+from ._store import UnknownChangeError, active_change_id, clear_active, set_active
 
 __all__ = (
     "Change",
@@ -20,11 +20,13 @@ __all__ = (
     "active_change_id",
     "approve",
     "artifact_hash",
+    "clear_active",
     "compute_status",
     "create_change",
     "derive_phase",
     "list_changes",
     "log_path",
+    "mark_archived",
     "open_questions",
     "plan_hash",
     "plan_path",
