@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from ._fences import lines_outside_fences
+from ._fences import lines_outside_fences, numbered_lines_outside_fences
 
-__all__ = ("lines_outside_fences",)
+__all__ = ("lines_outside_fences", "numbered_lines_outside_fences")

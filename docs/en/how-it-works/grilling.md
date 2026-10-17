@@ -71,5 +71,5 @@ the next open question. Settled decisions are never asked again.
 When nothing is left open, the agent plays the result back in a few lines, listing
 everything it decided on its own, and asks whether you share the same
 understanding. Only an explicit yes counts: it runs `grillspec approve grill`, the
-change moves to the `spec` phase, and the spec is written from the log. The agent
-never commits the log for you.
+change moves to the `spec` phase, and the spec is written from the log (see
+[How specs work](specs.md)). The agent never commits the log for you.

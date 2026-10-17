@@ -12,8 +12,8 @@ _OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 _CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 
 
-def lines_outside_fences(text: str) -> Iterator[str]:
-    """Yield the lines of a Markdown text that are not inside a fenced code block.
+def numbered_lines_outside_fences(text: str) -> Iterator[tuple[int, str]]:
+    """Yield the lines of a Markdown text outside fenced code blocks, numbered.
 
     A fence opens with three or more backticks or tildes (indented at most three
     spaces) and closes with a line of the same character, at least as long, indented
@@ -24,17 +24,17 @@ def lines_outside_fences(text: str) -> Iterator[str]:
         text: str - Markdown text.
 
     Yields:
-        str - Lines outside fences, fence lines excluded.
+        tuple[int, str] - 1-based line number and line, fence lines excluded.
 
     """
     fence: str | None = None
-    for line in text.splitlines():
+    for number, line in enumerate(text.splitlines(), 1):
         if fence is None:
             opened = _OPEN.match(line)
             if opened:
                 fence = opened.group(1)
                 continue
-            yield line
+            yield number, line
             continue
         closing = _CLOSE.match(line)
         if (
@@ -43,3 +43,17 @@ def lines_outside_fences(text: str) -> Iterator[str]:
             and len(closing.group(1)) >= len(fence)
         ):
             fence = None
+
+
+def lines_outside_fences(text: str) -> Iterator[str]:
+    """Yield the lines of a Markdown text that are not inside a fenced code block.
+
+    Args:
+        text: str - Markdown text.
+
+    Yields:
+        str - Lines outside fences, fence lines excluded.
+
+    """
+    for _, line in numbered_lines_outside_fences(text):
+        yield line

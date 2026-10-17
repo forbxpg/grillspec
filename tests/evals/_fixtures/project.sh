@@ -1,7 +1,9 @@
 #!/bin/bash
 # A small project set up for grillspec (superpowers backend). With "active", it also
 # has a change in the grill phase with two open questions. "council" is "active" at
-# deep depth with a role-only council and external members turned off.
+# deep depth with a role-only council and external members turned off. "grilled" has
+# a confirmed grill ready for the spec; "deferred" is the same with a deferred
+# decision that the retry requirement depends on.
 set -euo pipefail
 git init -q .
 git config user.email t@t && git config user.name t
@@ -39,6 +41,32 @@ if [ "${1:-}" = active ] || [ "${1:-}" = council ]; then
 - [x] D1 Delivery guarantee — **at-least-once** · user
 MD
   printf 'version = 1\n' > .grillspec/changes/2026-10-17-webhooks.toml
+  printf '{"version": 1, "active": "2026-10-17-webhooks"}\n' > .grillspec/state.json
+fi
+if [ "${1:-}" = grilled ] || [ "${1:-}" = deferred ]; then
+  mkdir -p docs/grillspec/specs .grillspec/changes
+  open=""
+  retry="three times with exponential backoff, 1 s then 2 s then 4 s"
+  if [ "${1:-}" = deferred ]; then
+    open="- [ ] Q3 Maximum retry window · deferred"
+    retry="with exponential backoff until the window from Q3 runs out"
+  fi
+  cat > docs/grillspec/specs/2026-10-17-webhooks.md <<MD
+# 2026-10-17-webhooks
+
+## Decision log
+
+<!-- grillspec: depth=standard council=no budget=15 asked=3 -->
+
+### Open
+$open
+
+### Settled
+- [x] D1 Delivery guarantee — **at-least-once** · user
+- [x] D2 Retry policy — **retry failed deliveries $retry** · user
+- [x] D3 Attempt log — **one JSON line per attempt with status code and duration** · accepted
+MD
+  printf 'version = 1\ngrilled = 2026-10-17\n' > .grillspec/changes/2026-10-17-webhooks.toml
   printf '{"version": 1, "active": "2026-10-17-webhooks"}\n' > .grillspec/state.json
 fi
 git add -A && git commit -qm init

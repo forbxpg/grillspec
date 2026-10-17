@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 from grillspec.config import Backend, CouncilMode, Depth
 from grillspec.paths import write_atomic
 
-from ._changes import SIDECARS, archived_ids, list_changes, log_path
+from ._changes import SIDECARS, archived_ids, list_changes
+from ._layout import log_path
 from ._phase import Phase, compute_status
 from ._sidecar import ChangeError, write_sidecar
 from ._store import set_active

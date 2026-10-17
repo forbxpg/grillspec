@@ -143,7 +143,9 @@ def test_unreadable_config_is_config_error(tmp_path: Path):
 
 
 def test_status_line_escapes_control_characters():
-    status = Status(Phase.SPEC, "evil\x1b[2Jid", "write and approve the spec")
+    status = Status(
+        Phase.SPEC, "evil\x1b[2Jid", "write the spec, grillspec validate, then approve"
+    )
     assert "\x1b" not in status.line()
     assert "evil\\x1b[2Jid" in status.line()
 

@@ -12,13 +12,16 @@ from typing import TYPE_CHECKING, cast
 from grillspec.config import Backend, ConfigError
 from grillspec.markdown import lines_outside_fences
 
+from ._hash import artifact_hash
+from ._layout import OPENSPEC_CHANGES as _OPENSPEC_CHANGES
+from ._layout import PLANS as _PLANS
+from ._layout import SPECS as _SPECS
+from ._layout import log_path
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
 SIDECARS = Path(".grillspec") / "changes"
-_SPECS = Path("docs") / "grillspec" / "specs"
-_PLANS = Path("docs") / "grillspec" / "plans"
-_OPENSPEC_CHANGES = Path("openspec") / "changes"
 _ARCHIVE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
 _OPEN_ITEM = re.compile(r"^\s*[-*+] \[ \]")
 LOG_HEADING = "## Decision log"
@@ -38,6 +41,8 @@ class Change:
             understanding.
         log_path: Path | None - The decision log, when written: the spec file
             (superpowers) or ``design.md`` (OpenSpec).
+        spec_stale: bool - The spec changed since it was approved (its
+            ``spec_hash`` no longer matches).
 
     """
 
@@ -48,6 +53,7 @@ class Change:
     plan_approved: dt.date | None
     grilled: dt.date | None = None
     log_path: Path | None = None
+    spec_stale: bool = False
 
 
 def _existing(path: Path) -> Path | None:
@@ -79,24 +85,6 @@ def _artifacts(root: Path, backend: Backend, change_id: str) -> tuple[Path, Path
         return root / _SPECS / f"{change_id}.md", root / _PLANS / f"{change_id}.md"
     folder = root / _OPENSPEC_CHANGES / change_id
     return folder / "proposal.md", folder / "tasks.md"
-
-
-def log_path(root: Path, backend: Backend, change_id: str) -> Path:
-    """Return where a change's decision log lives in a backend.
-
-    Args:
-        root: Path - Project root.
-        backend: Backend - Spec backend.
-        change_id: str - Change id.
-
-    Returns:
-        Path - The spec file (superpowers) or ``design.md`` (OpenSpec); it may not
-            exist yet.
-
-    """
-    if backend is Backend.SUPERPOWERS:
-        return root / _SPECS / f"{change_id}.md"
-    return root / _OPENSPEC_CHANGES / change_id / "design.md"
 
 
 def open_questions(log: Path | None) -> int:
@@ -190,6 +178,32 @@ def _date(data: dict[str, object], key: str, sidecar: Path) -> dt.date | None:
     raise ConfigError(msg)
 
 
+_HASH = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def spec_hash(data: dict[str, object], sidecar: Path) -> str | None:
+    """Read the approved spec's fingerprint from a sidecar.
+
+    Args:
+        data: dict[str, object] - Parsed sidecar.
+        sidecar: Path - The sidecar file, for the error message.
+
+    Returns:
+        str | None - ``sha256:<hex>``, or None when the key is absent.
+
+    Raises:
+        ConfigError: If the value is not ``sha256:`` and 64 hex digits.
+
+    """
+    value = data.get("spec_hash")
+    if value is None:
+        return None
+    if isinstance(value, str) and _HASH.fullmatch(value):
+        return value
+    msg = f"{sidecar}: spec_hash must be sha256:<64 hex digits>, got {value!r}"
+    raise ConfigError(msg)
+
+
 def read_sidecar(sidecar: Path) -> dict[str, object]:
     """Parse a sidecar, or return nothing when it does not exist.
 
@@ -236,6 +250,25 @@ def archived_ids(root: Path, backend: Backend) -> set[str]:
     }
 
 
+def _stale(root: Path, backend: Backend, change_id: str, approved: str | None) -> bool:
+    """Tell whether an approved spec changed since its approval.
+
+    Args:
+        root: Path - Project root.
+        backend: Backend - Spec backend.
+        change_id: str - Change id.
+        approved: str | None - The fingerprint recorded at approval.
+
+    Returns:
+        bool - True when a fingerprint was recorded and no longer matches; a
+            sidecar approved before fingerprints existed never counts as stale.
+
+    """
+    if approved is None:
+        return False
+    return artifact_hash(root, backend, change_id) != approved
+
+
 def list_changes(root: Path, backend: Backend) -> tuple[Change, ...]:
     """List every change in the project, sorted by id.
 
@@ -264,6 +297,7 @@ def list_changes(root: Path, backend: Backend) -> tuple[Change, ...]:
                 plan_approved=_date(data, "plan_approved", sidecar),
                 grilled=_date(data, "grilled", sidecar),
                 log_path=_existing(log_path(root, backend, change_id)),
+                spec_stale=_stale(root, backend, change_id, spec_hash(data, sidecar)),
             )
         )
     return tuple(changes)

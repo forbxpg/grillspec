@@ -27,13 +27,16 @@ from grillspec.hooks import Harness, render_session_start, session_context
 from grillspec.init import init_project
 from grillspec.install import InstallConflictError, Scope, install, uninstall
 from grillspec.paths import project_root, write_atomic
+from grillspec.specs import Report, openspec_advice, validate_change
 from grillspec.state import (
     ChangeError,
     Stage,
     UnknownChangeError,
+    active_change_id,
     approve,
     compute_status,
     create_change,
+    list_changes,
     set_active,
 )
 
@@ -99,6 +102,9 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = new.add_argument("--depth", choices=[str(d) for d in Depth])
     _ = new.add_argument("--council", action="store_true", help="grill with a council")
     _add_council(commands.add_parser("council", help="ask external agent CLIs"))
+    check = commands.add_parser("validate", help="check a change's spec")
+    _ = check.add_argument("change_id", nargs="?", help="change id (default: active)")
+    _ = check.add_argument("--json", action="store_true", help="print JSON")
     approve_cmd = commands.add_parser("approve", help="record an approval")
     _ = approve_cmd.add_argument("stage", choices=[str(s) for s in Stage])
     harnesses = [str(h) for h in Harness]
@@ -141,6 +147,28 @@ def _new(slug: str, *, switch: bool, depth: str | None, council: bool) -> int:
     return _print(f"created {change.id}; decision log: {log}")
 
 
+def _plan_refusal(root: Path, backend: Backend) -> str | None:
+    """Tell why the plan of the active change cannot be approved yet.
+
+    Args:
+        root: Path - Project root.
+        backend: Backend - Spec backend.
+
+    Returns:
+        str | None - The reason, or None when the approved spec is current.
+
+    """
+    change_id, _ = active_change_id(root)
+    change = next((c for c in list_changes(root, backend) if c.id == change_id), None)
+    if change is None:
+        return None
+    if change.spec_approved is None:
+        return "approve the spec first: grillspec approve spec"
+    if change.spec_stale:
+        return "spec changed since approval: review it, then grillspec approve spec"
+    return None
+
+
 def _approve(stage: str) -> int:
     """Record today's approval of a stage for the active change.
 
@@ -156,6 +184,20 @@ def _approve(stage: str) -> int:
     if backend is None:
         _ = sys.stderr.write("grillspec is not set up here; run grillspec init\n")
         return 1
+    if Stage(stage) is Stage.PLAN:
+        refusal = _plan_refusal(root, backend)
+        if refusal is not None:
+            _ = sys.stderr.write(f"grillspec: {refusal}\n")
+            return 1
+    if Stage(stage) is Stage.SPEC:
+        change_id, _ = active_change_id(root)
+        if change_id is not None:
+            report = validate_change(root, backend, change_id)
+            if report.errors:
+                for finding in report.errors:
+                    _ = sys.stderr.write(finding.text() + "\n")
+                _ = sys.stderr.write("grillspec: fix these, then approve again\n")
+                return 1
     sidecar = approve(
         root, backend, Stage(stage), today=dt.datetime.now().astimezone().date()
     )
@@ -289,6 +331,44 @@ def _read_payload(path: str | None) -> str:
     except UnicodeDecodeError as error:
         msg = f"council payload is not UTF-8: {error}"
         raise CouncilError(msg) from None
+
+
+def _validate(change_id: str | None, *, as_json: bool) -> int:
+    """Check a change's spec and print what was found.
+
+    Args:
+        change_id: str | None - Change id; None for the active change.
+        as_json: bool - Print JSON instead of one line per finding.
+
+    Returns:
+        int - Exit code: 1 when there are errors or grillspec is not set up.
+
+    Raises:
+        ChangeError: If no change is given and none is active, or the id is unknown.
+
+    """
+    root = project_root(Path.cwd())
+    backend = load_config(root).config.backend
+    if backend is None:
+        _ = sys.stderr.write("grillspec is not set up here; run grillspec init\n")
+        return 1
+    if change_id is None:
+        change_id, _ = active_change_id(root)
+    if change_id is None:
+        msg = "no active change; run grillspec new or grillspec use"
+        raise ChangeError(msg)
+    report = validate_change(root, backend, change_id)
+    if backend is Backend.OPENSPEC:
+        advice = openspec_advice(root, change_id)
+        report = Report(report.change, report.errors, (*report.warnings, *advice))
+    if as_json:
+        _ = sys.stdout.write(json.dumps(report.to_json()) + "\n")
+    else:
+        for finding in (*report.errors, *report.warnings):
+            _ = sys.stdout.write(finding.text() + "\n")
+        counts = f"{len(report.errors)} errors, {len(report.warnings)} warnings"
+        _ = sys.stdout.write(counts + "\n")
+    return 1 if report.errors else 0
 
 
 def _install(harness: str, scope: str, *, copy: bool, dry_run: bool) -> int:
@@ -523,6 +603,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             cast("str", args.backend), dry_run=cast("bool", args.dry_run)
         ),
         "detect": lambda: _detect(as_json=cast("bool", args.json)),
+        "validate": lambda: _validate(
+            cast("str | None", args.change_id), as_json=cast("bool", args.json)
+        ),
         "approve": lambda: _approve(cast("str", args.stage)),
         "council": lambda: _council_ask(
             cast("str | None", args.members),

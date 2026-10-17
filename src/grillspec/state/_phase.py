@@ -47,10 +47,11 @@ class Phase(StrEnum):
     DONE = "done"
 
 
+STALE_NEXT = "spec changed since approval: review it, then grillspec approve spec"
 _NEXT = {
     Phase.IDLE: "start a change with the grillspec-grill skill",
     Phase.GRILL: "continue grilling: {open} open questions",
-    Phase.SPEC: "write and approve the spec",
+    Phase.SPEC: "write the spec, grillspec validate, then approve",
     Phase.PLAN: "write and approve the plan",
     Phase.EXECUTE: "execute the plan",
     Phase.DONE: "archive the change",
@@ -129,7 +130,11 @@ def derive_phase(change: Change | None) -> Phase:
         return Phase.IDLE
     if change.grilled is None and change.spec_approved is None:
         return Phase.GRILL
-    if change.spec_approved is None or change.spec_path is None:
+    if (
+        change.spec_approved is None
+        or change.spec_path is None
+        or (change.spec_stale and change.plan_approved is None)
+    ):
         return Phase.SPEC
     if change.plan_approved is None or change.plan_path is None:
         return Phase.PLAN
@@ -160,6 +165,11 @@ def compute_status(root: Path, config: Config) -> Status:
     next_step = _NEXT[phase].format(open=count)
     if phase is Phase.GRILL and count == 0:
         next_step = "confirm the grill, then run grillspec approve grill"
+    if change is not None and change.spec_stale:
+        if phase is Phase.SPEC:
+            next_step = STALE_NEXT
+        else:
+            warnings = (*warnings, "spec changed after approval")
     relative = log.relative_to(root) if log else None
     return Status(
         phase, change.id if change else None, next_step, warnings, count, relative

@@ -13,6 +13,7 @@ from grillspec.config import ConfigError
 from grillspec.paths import write_atomic
 
 from ._changes import SIDECARS, read_sidecar
+from ._hash import artifact_hash
 from ._store import active_change_id
 
 if TYPE_CHECKING:
@@ -113,7 +114,7 @@ def approve(root: Path, backend: Backend, stage: Stage, *, today: dt.date) -> Pa
 
     Args:
         root: Path - Project root.
-        backend: Backend - Spec backend (kept for symmetry with other commands).
+        backend: Backend - Spec backend (decides which files the spec hash covers).
         stage: Stage - What was approved.
         today: dt.date - Approval date.
 
@@ -124,7 +125,6 @@ def approve(root: Path, backend: Backend, stage: Stage, *, today: dt.date) -> Pa
         ChangeError: If no change is active.
 
     """
-    del backend
     change_id, _ = active_change_id(root)
     if change_id is None:
         msg = "no active change; run grillspec new or grillspec use"
@@ -132,5 +132,7 @@ def approve(root: Path, backend: Backend, stage: Stage, *, today: dt.date) -> Pa
     sidecar = root / SIDECARS / f"{change_id}.toml"
     data = dict(read_sidecar(sidecar))
     data[_KEYS[stage]] = today
+    if stage is Stage.SPEC:
+        data["spec_hash"] = artifact_hash(root, backend, change_id)
     write_sidecar(sidecar, data)
     return sidecar
