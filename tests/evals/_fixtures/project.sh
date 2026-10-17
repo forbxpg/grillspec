@@ -3,7 +3,8 @@
 # has a change in the grill phase with two open questions. "council" is "active" at
 # deep depth with a role-only council and external members turned off. "grilled" has
 # a confirmed grill ready for the spec; "deferred" is the same with a deferred
-# decision that the retry requirement depends on.
+# decision that the retry requirement depends on. "specced" has an approved spec
+# whose log holds a test-command decision and a redacted secret.
 set -euo pipefail
 git init -q .
 git config user.email t@t && git config user.name t
@@ -68,5 +69,42 @@ $open
 MD
   printf 'version = 1\ngrilled = 2026-10-17\n' > .grillspec/changes/2026-10-17-webhooks.toml
   printf '{"version": 1, "active": "2026-10-17-webhooks"}\n' > .grillspec/state.json
+fi
+if [ "${1:-}" = specced ]; then
+  mkdir -p docs/grillspec/specs .grillspec/changes
+  cat > docs/grillspec/specs/2026-10-17-webhooks.md <<'MD'
+# 2026-10-17-webhooks
+
+## Intent
+
+Deliver webhook events reliably and record every delivery attempt.
+
+## Decision log
+
+<!-- grillspec: depth=standard council=no budget=15 asked=5 -->
+
+### Open
+
+### Settled
+- [x] D1 Delivery guarantee — **at-least-once** · user
+- [x] D2 Retry policy — **three retries with exponential backoff, 1 s, 2 s, 4 s** · user
+- [x] D3 Attempt log — **one JSON line per attempt with status code and duration** · accepted
+- [x] D4 Test command — **uv run pytest -q** · user
+  > "tests only pass with -q because of the snapshot plugin"
+- [x] D5 Staging token — **use the token from the vault** · user
+  > "it is sk-test-4f9a2c7e for now"
+
+## Requirements
+
+### Requirement: Retry failed deliveries
+The sender SHALL retry a failed delivery three times, waiting 1 s, 2 s and 4 s.
+
+#### Scenario: WH-1 retries back off
+- **WHEN** every attempt for an event fails
+- **THEN** the sender makes three retries, 1 s, 2 s and 4 s apart, then stops
+MD
+  printf 'version = 1\ngrilled = 2026-10-17\nspec_approved = 2026-10-17\n' > .grillspec/changes/2026-10-17-webhooks.toml
+  printf '{"version": 1, "active": "2026-10-17-webhooks"}\n' > .grillspec/state.json
+  printf '# Agents\n\n<!-- grillspec:begin -->\n## grillspec\n<!-- grillspec:end -->\n' > AGENTS.md
 fi
 git add -A && git commit -qm init

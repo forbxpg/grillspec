@@ -50,11 +50,15 @@ def _join(lines: list[str], newline: str) -> str:
     return newline.join(lines) + newline if lines else ""
 
 
-def _span(lines: list[str]) -> tuple[int, int] | None:
-    """Locate the managed block.
+def _span(
+    lines: list[str], begin: str = BEGIN, end: str = END
+) -> tuple[int, int] | None:
+    """Locate a managed block.
 
     Args:
         lines: list[str] - File lines.
+        begin: str - Begin marker line.
+        end: str - End marker line.
 
     Returns:
         tuple[int, int] | None - Indexes of the begin and end marker lines, or
@@ -65,8 +69,10 @@ def _span(lines: list[str]) -> tuple[int, int] | None:
             comes before begin.
 
     """
-    begins = [i for i, line in enumerate(lines) if line.strip() == BEGIN]
-    ends = [i for i, line in enumerate(lines) if line.strip() == END]
+    # A UTF-8 BOM read as text sits in front of a marker on the first line.
+    marks = [line.strip().removeprefix("\ufeff") for line in lines]
+    begins = [i for i, line in enumerate(marks) if line == begin]
+    ends = [i for i, line in enumerate(marks) if line == end]
     if not begins and not ends:
         return None
     if len(begins) != 1 or len(ends) != 1 or ends[0] < begins[0]:
@@ -75,12 +81,40 @@ def _span(lines: list[str]) -> tuple[int, int] | None:
     return begins[0], ends[0]
 
 
-def upsert_block(text: str, body: str) -> str:
-    """Insert or replace the managed block.
+def block_body(text: str, *, begin: str = BEGIN, end: str = END) -> list[str] | None:
+    """Return the lines between a managed block's markers.
+
+    Args:
+        text: str - File content.
+        begin: str - Begin marker line.
+        end: str - End marker line.
+
+    Returns:
+        list[str] | None - The body lines, or None when there is no block.
+
+    """
+    lines = _lines(text)
+    span = _span(lines, begin, end)
+    return None if span is None else lines[span[0] + 1 : span[1]]
+
+
+def upsert_block(
+    text: str,
+    body: str,
+    *,
+    begin: str = BEGIN,
+    end: str = END,
+    after: tuple[str, str] | None = None,
+) -> str:
+    """Insert or replace a managed block.
 
     Args:
         text: str - File content.
         body: str - Block content, without markers.
+        begin: str - Begin marker line.
+        end: str - End marker line.
+        after: tuple[str, str] | None - Markers of another block; a new block
+            goes right after it when it exists, else at the end of the file.
 
     Returns:
         str - The new content; everything outside the block is unchanged.
@@ -88,33 +122,40 @@ def upsert_block(text: str, body: str) -> str:
     """
     newline = _newline(text)
     lines = _lines(text)
-    block = [BEGIN, *_lines(body), END]
-    span = _span(lines)
-    if span is None:
-        separator = [""] if lines else []
-        return _join([*lines, *separator, *block], newline)
-    begin, end = span
-    return _join([*lines[:begin], *block, *lines[end + 1 :]], newline)
+    block = [begin, *_lines(body), end]
+    span = _span(lines, begin, end)
+    if span is not None:
+        first, last = span
+        return _join([*lines[:first], *block, *lines[last + 1 :]], newline)
+    anchor = _span(lines, *after) if after is not None else None
+    if anchor is not None:
+        head, rest = lines[: anchor[1] + 1], lines[anchor[1] + 1 :]
+        tail = [""] if rest and rest[0].strip() else []
+        return _join([*head, "", *block, *tail, *rest], newline)
+    separator = [""] if lines else []
+    return _join([*lines, *separator, *block], newline)
 
 
-def remove_block(text: str) -> str:
-    """Remove the managed block and the blank line grillspec put before it.
+def remove_block(text: str, *, begin: str = BEGIN, end: str = END) -> str:
+    """Remove a managed block and the blank line grillspec put before it.
 
     Args:
         text: str - File content.
+        begin: str - Begin marker line.
+        end: str - End marker line.
 
     Returns:
         str - The content without the block.
 
     """
     lines = _lines(text)
-    span = _span(lines)
+    span = _span(lines, begin, end)
     if span is None:
         return text
-    begin, end = span
-    if begin > 0 and not lines[begin - 1].strip():
-        begin -= 1
-    return _join([*lines[:begin], *lines[end + 1 :]], _newline(text))
+    first, last = span
+    if first > 0 and not lines[first - 1].strip():
+        first -= 1
+    return _join([*lines[:first], *lines[last + 1 :]], _newline(text))
 
 
 def ensure_line(text: str, line: str) -> str:

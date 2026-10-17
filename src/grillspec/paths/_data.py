@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import stat
 import tempfile
 from pathlib import Path
 
@@ -67,16 +68,27 @@ def write_atomic(path: Path, text: str) -> None:
 
     The text goes to a sibling temporary file that is then swapped in, so an
     interrupted write never leaves a truncated file, and a symlink at ``path`` is
-    replaced rather than followed.
+    replaced rather than followed (resolve the path first to write through it). An
+    existing file keeps its permissions.
 
     Args:
         path: Path - File to write; its directory is created when missing.
-        text: str - New content, written as UTF-8.
+        text: str - New content, written as UTF-8 exactly as given (no newline
+            translation, so CRLF files stay CRLF on every platform).
 
     """
     path.parent.mkdir(parents=True, exist_ok=True)
+    mode = path.stat().st_mode if path.is_file() and not path.is_symlink() else None
     with tempfile.NamedTemporaryFile(
-        "w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}-", delete=False
+        "w",
+        encoding="utf-8",
+        newline="",
+        dir=path.parent,
+        prefix=f".{path.name}-",
+        delete=False,
     ) as handle:
         _ = handle.write(text)
+    if mode is not None:
+        # The temporary file is created 0600; keep the permissions the file had.
+        Path(handle.name).chmod(stat.S_IMODE(mode))
     _ = Path(handle.name).replace(path)

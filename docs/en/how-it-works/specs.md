@@ -15,7 +15,8 @@ scenarios that the plan and the tests cite.
 4. **A builder-check** (standard and deep depth) runs: a fresh subagent sees only the
    log and the spec and reports where it would have to guess.
 5. **You review an overview** and approve with an explicit yes.
-6. **`grillspec approve spec`** records the approval and the spec's fingerprint.
+6. **`grillspec approve spec`** records the approval and the spec's fingerprint;
+   then the agent proposes what to remember (see [How memory works](memory.md)).
 
 ## Superpowers layout
 

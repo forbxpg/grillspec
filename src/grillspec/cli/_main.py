@@ -26,6 +26,15 @@ from grillspec.detect import brownfield_signals, cli_report, recommend_backend
 from grillspec.hooks import Harness, render_session_start, session_context
 from grillspec.init import init_project
 from grillspec.install import InstallConflictError, Scope, install, uninstall
+from grillspec.memory import (
+    CATEGORIES,
+    MAX_ENTRIES,
+    Entry,
+    MemoryBlockError,
+    add_entry,
+    read_entries,
+    retire_entry,
+)
 from grillspec.paths import project_root, write_atomic
 from grillspec.specs import Report, openspec_advice, validate_change
 from grillspec.state import (
@@ -43,6 +52,26 @@ from grillspec.state import (
 if TYPE_CHECKING:
     import io
     from collections.abc import Callable, Sequence
+
+
+def _add_memory(memory: argparse.ArgumentParser) -> None:
+    """Add ``memory list|add|retire`` to the ``memory`` parser.
+
+    Args:
+        memory: argparse.ArgumentParser - The ``memory`` sub-parser.
+
+    """
+    actions = memory.add_subparsers(dest="memory_command", required=True)
+    listing = actions.add_parser("list", help="show the remembered facts")
+    _ = listing.add_argument("--json", action="store_true", help="print JSON")
+    add = actions.add_parser("add", help="remember one fact")
+    _ = add.add_argument(
+        "--category", required=True, metavar="{" + ",".join(CATEGORIES) + "}"
+    )
+    _ = add.add_argument("--change", required=True, help="id of the source change")
+    _ = add.add_argument("text", help="the fact, one line (put -- before it)")
+    retire = actions.add_parser("retire", help="forget fact <n> (as listed)")
+    _ = retire.add_argument("number", type=int)
 
 
 def _add_council(council: argparse.ArgumentParser) -> None:
@@ -102,6 +131,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = new.add_argument("--depth", choices=[str(d) for d in Depth])
     _ = new.add_argument("--council", action="store_true", help="grill with a council")
     _add_council(commands.add_parser("council", help="ask external agent CLIs"))
+    _add_memory(commands.add_parser("memory", help="project memory in AGENTS.md"))
     check = commands.add_parser("validate", help="check a change's spec")
     _ = check.add_argument("change_id", nargs="?", help="change id (default: active)")
     _ = check.add_argument("--json", action="store_true", help="print JSON")
@@ -371,6 +401,56 @@ def _validate(change_id: str | None, *, as_json: bool) -> int:
     return 1 if report.errors else 0
 
 
+def _memory(args: argparse.Namespace) -> int:
+    """List, add or retire remembered facts in the project's AGENTS.md.
+
+    Args:
+        args: argparse.Namespace - Parsed ``memory`` arguments.
+
+    A broken block or a refused change raises ``MemoryBlockError``, which
+    ``main`` reports as one line.
+
+    Returns:
+        int - Exit code: 1 when grillspec is not set up here.
+
+    """
+    root = project_root(Path.cwd())
+    # Only the project's own config counts: a backend in the user config must not
+    # make every directory look set up.
+    if not (root / ".grillspec" / "config.toml").is_file():
+        _ = sys.stderr.write("grillspec is not set up here; run grillspec init\n")
+        return 1
+    # Write through a symlink (AGENTS.md -> CLAUDE.md is a common setup).
+    agents = (root / "AGENTS.md").resolve()
+    text = ""
+    if agents.is_file():
+        with agents.open(encoding="utf-8", newline="") as handle:
+            text = handle.read()
+    action = cast("str", args.memory_command)
+    if action == "list":
+        entries = read_entries(text)
+        if cast("bool", args.json):
+            listed = [
+                {"n": n, "category": e.category, "text": e.text, "change": e.change}
+                for n, e in enumerate(entries, 1)
+            ]
+            data = {"version": 1, "cap": MAX_ENTRIES, "entries": listed}
+            return _print(json.dumps(data))
+        for n, entry in enumerate(entries, 1):
+            _ = sys.stdout.write(f"{n}. {entry.line().removeprefix('- ')}\n")
+        return _print(f"{len(entries)}/{MAX_ENTRIES} entries")
+    if action == "add":
+        entry = Entry(
+            cast("str", args.category), cast("str", args.text), cast("str", args.change)
+        )
+        updated = add_entry(text, entry)
+        write_atomic(agents, updated)
+        return _print(f"added {len(read_entries(updated))}/{MAX_ENTRIES}")
+    number = cast("int", args.number)
+    write_atomic(agents, retire_entry(text, number))
+    return _print(f"retired {number}")
+
+
 def _install(harness: str, scope: str, *, copy: bool, dry_run: bool) -> int:
     """Install skills for a harness, or print its native install command.
 
@@ -607,6 +687,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             cast("str | None", args.change_id), as_json=cast("bool", args.json)
         ),
         "approve": lambda: _approve(cast("str", args.stage)),
+        "memory": lambda: _memory(args),
         "council": lambda: _council_ask(
             cast("str | None", args.members),
             cast("int | None", args.timeout),
@@ -632,6 +713,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     try:
         return handlers[cast("str", args.command)]()
-    except (ConfigError, InstallConflictError, ChangeError, CouncilError) as error:
+    except (
+        ConfigError,
+        InstallConflictError,
+        ChangeError,
+        CouncilError,
+        MemoryBlockError,
+    ) as error:
         _ = sys.stderr.write(f"grillspec: {error}\n")
         return 1
