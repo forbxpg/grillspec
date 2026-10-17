@@ -1,0 +1,33 @@
+grillspec
+Copyright (c) 2026 forbxpg. Licensed under the MIT License (see LICENSE).
+
+grillspec is an independent project. It builds on ideas, formats and, where noted,
+code from the following MIT-licensed projects. Their copyright notices are kept here
+as their licenses require.
+
+Superpowers 7.0.0 — https://github.com/obra/superpowers
+  Copyright (c) 2025 Jesse Vincent. MIT License.
+  Taken: the session-start bootstrap pattern and the polyglot hook runner
+  (hooks/run-hook.cmd is based on Superpowers' hooks/run-hook.cmd); the plan format,
+  the execution workflow (subagent-driven development, executing plans), systematic
+  debugging, verification and code-review practices; the method for writing and
+  pressure-testing skills.
+
+OpenSpec 1.14.2 — https://github.com/Fission-AI/OpenSpec
+  Copyright (c) Fission AI. MIT License.
+  Taken: the living-spec model (specs plus change deltas, archive), the Requirement /
+  Scenario format and the delta sections. grillspec's openspec backend writes files
+  compatible with the OpenSpec CLI; it does not include OpenSpec code.
+
+mattpocock/skills 1.3.1 — https://github.com/mattpocock/skills
+  Copyright (c) 2026 Matt Pocock. MIT License.
+  Taken: the grilling approach (decision tree, recommended answer per question,
+  facts looked up versus decisions asked) and its round-based question format.
+
+claude-council 2026.7.6 — https://github.com/hex/claude-council
+  Copyright (c) 2025-2026 hex. MIT License.
+  Taken: the idea of a council of independent perspectives with role lenses and a
+  consensus / divergence / recommendation synthesis.
+
+The MIT License text for each project is the same as in LICENSE, with the copyright
+line above.

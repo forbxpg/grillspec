@@ -45,7 +45,12 @@ required-imports = ["from __future__ import annotations"]
     "start-process-with-partial-path",
     "suspicious-subprocess-import",
 ]
-"scripts/**" = ["implicit-namespace-package"]
+"scripts/**" = [
+    "implicit-namespace-package",
+    # Scripts call git with fixed argument lists, never a shell.
+    "suspicious-subprocess-import",
+    "subprocess-without-shell-equals-true",
+]
 # git is called with a fixed argument list, never a shell.
 "src/grillspec/detect/_detect.py" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true"]
 

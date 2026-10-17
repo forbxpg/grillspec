@@ -1,0 +1,30 @@
+name: Bug report
+description: Something does not work as documented. Security issues go to the security policy.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: grillspec version or commit
+    validations:
+      required: true
+  - type: dropdown
+    id: harness
+    attributes:
+      label: Harness
+      options: [Claude Code, Cursor, Codex, Antigravity, GigaCode, Not harness-specific]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you asked the agent, the output of `grillspec status`, and what happened.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behaviour
+    validations:
+      required: true

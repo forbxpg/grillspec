@@ -1,0 +1,17 @@
+name: Feature request
+description: Propose a change to grillspec's workflow, skills or harness support.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What goes wrong or costs too much today, in a concrete session.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+    validations:
+      required: true
