@@ -31,7 +31,7 @@ whatever the row.
 
 | Phase | Skill | Leaves behind |
 |---|---|---|
-| grill | `grillspec-grill` | a decision log (Open / Settled), confirmed by the user |
+| grill | `grillspec-grill`, with `grillspec-council` when the council is on | a decision log (Open / Settled), confirmed by the user |
 | spec | `grillspec-specs`, then `grillspec-memory` | an approved spec; approved memory entries |
 | plan | `grillspec-plans` | an approved plan |
 | execute | `subagent-driven-development` or `executing-plans`, with `test-driven-development`, `systematic-debugging`, `verification-before-completion` | code and green tests |

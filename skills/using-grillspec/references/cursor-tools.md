@@ -6,6 +6,7 @@
 | Dispatch a subagent | `Task` tool (agents in `.cursor/agents/`). |
 | Track tasks | The todo tool of your Cursor version (unverified name). |
 | Run a command | The terminal tool. |
+| Run a command in the background | The terminal tool with `is_background: true` (unverified name). |
 
 Session start: the plugin's `sessionStart` hook injects this router and the
 status line.

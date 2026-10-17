@@ -11,12 +11,22 @@ from typing import TYPE_CHECKING, cast
 
 from grillspec import __version__
 from grillspec.blocks import BlockError
-from grillspec.config import Backend, ConfigError, Depth, load_config
-from grillspec.detect import available_clis, brownfield_signals, recommend_backend
+from grillspec.config import Backend, ConfigError, Depth, External, load_config
+from grillspec.council import (
+    CouncilError,
+    build_argv,
+    member_spec,
+    parse_payload,
+    render_prompt,
+    resolve_cli,
+    resolve_members,
+    run_members,
+)
+from grillspec.detect import brownfield_signals, cli_report, recommend_backend
 from grillspec.hooks import Harness, render_session_start, session_context
 from grillspec.init import init_project
 from grillspec.install import InstallConflictError, Scope, install, uninstall
-from grillspec.paths import project_root
+from grillspec.paths import project_root, write_atomic
 from grillspec.state import (
     ChangeError,
     Stage,
@@ -28,7 +38,28 @@ from grillspec.state import (
 )
 
 if TYPE_CHECKING:
+    import io
     from collections.abc import Callable, Sequence
+
+
+def _add_council(council: argparse.ArgumentParser) -> None:
+    """Add ``council ask`` to the ``council`` parser.
+
+    Args:
+        council: argparse.ArgumentParser - The ``council`` sub-parser.
+
+    """
+    council_commands = council.add_subparsers(dest="council_command", required=True)
+    ask = council_commands.add_parser(
+        "ask", help="ask one decision (JSON payload on stdin)"
+    )
+    _ = ask.add_argument("--members", help="comma-separated cli:<vendor>[@<model>]")
+    _ = ask.add_argument("--payload", help="read the payload from this UTF-8 file")
+    _ = ask.add_argument(
+        "--out", help="also write the result (or the error) to this file, atomically"
+    )
+    _ = ask.add_argument("--timeout", type=int, help="seconds per member (1-600)")
+    _ = ask.add_argument("--dry-run", action="store_true", help="only print calls")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -67,6 +98,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     _ = new.add_argument("--depth", choices=[str(d) for d in Depth])
     _ = new.add_argument("--council", action="store_true", help="grill with a council")
+    _add_council(commands.add_parser("council", help="ask external agent CLIs"))
     approve_cmd = commands.add_parser("approve", help="record an approval")
     _ = approve_cmd.add_argument("stage", choices=[str(s) for s in Stage])
     harnesses = [str(h) for h in Harness]
@@ -128,6 +160,135 @@ def _approve(stage: str) -> int:
         root, backend, Stage(stage), today=dt.datetime.now().astimezone().date()
     )
     return _print(f"approved {stage} for {sidecar.stem}")
+
+
+MAX_TIMEOUT = 600
+
+
+def _council_ask(
+    members: str | None,
+    timeout: int | None,
+    payload_path: str | None,
+    out: str | None,
+    *,
+    dry_run: bool,
+) -> int:
+    """Run ``council ask``; with ``--out``, also leave the result or error there.
+
+    The file appears only when the call is over, so a background caller can wait
+    for it.
+
+    Args:
+        members: str | None - ``--members``, or None for the configured ones.
+        timeout: int | None - ``--timeout``, or None for ``council.timeout``.
+        payload_path: str | None - ``--payload`` file; None reads stdin.
+        out: str | None - ``--out`` file, or None.
+        dry_run: bool - Print each call instead of making it.
+
+    Returns:
+        int - Exit code, as ``_council_ask_run``.
+
+    Raises:
+        CouncilError: Re-raised after the error is written to ``out``.
+        ConfigError: Re-raised after the error is written to ``out``.
+
+    """
+    try:
+        code, result = _council_ask_run(members, timeout, payload_path, dry_run=dry_run)
+    except (CouncilError, ConfigError) as error:
+        if out is not None:
+            write_atomic(
+                Path(out), json.dumps({"version": 1, "error": str(error)}) + "\n"
+            )
+        raise
+    text = json.dumps(result) + "\n"
+    if out is not None:
+        write_atomic(Path(out), text)
+    if code == 0:
+        _ = sys.stdout.write(text)
+    else:
+        _ = sys.stderr.write(f"grillspec: {result['error']}\n")
+    return code
+
+
+def _council_ask_run(
+    members: str | None, timeout: int | None, payload_path: str | None, *, dry_run: bool
+) -> tuple[int, dict[str, object]]:
+    """Ask external council members about one decision.
+
+    Args:
+        members: str | None - ``--members``, or None for the configured ones.
+        payload_path: str | None - ``--payload`` file; None reads stdin.
+        timeout: int | None - ``--timeout``, or None for ``council.timeout``.
+        dry_run: bool - Print each call instead of making it.
+
+    Returns:
+        tuple[int, dict[str, object]] - Exit code and the JSON result: 1 with an
+            ``error`` when external members are disabled; 0 otherwise, even when
+            every member failed.
+
+    Raises:
+        CouncilError: If the members, the timeout or the payload are invalid.
+
+    """
+    root = project_root(Path.cwd())
+    config = load_config(root).config
+    if config.council_external is External.NEVER:
+        disabled = 'external council members are disabled (council.external = "never")'
+        return 1, {"version": 1, "error": disabled}
+    chosen = resolve_members(members, config.council_members)
+    seconds = config.council_timeout if timeout is None else timeout
+    if not 1 <= seconds <= MAX_TIMEOUT:
+        msg = f"--timeout must be from 1 to 600 seconds, not {seconds}"
+        raise CouncilError(msg)
+    argvs = [build_argv(m, resolve_cli(m.name) or m.name) for m in chosen]
+    prompt = render_prompt(parse_payload(_read_payload(payload_path)))
+    share = root if config.council_share_project else None
+    payload: dict[str, object]
+    if dry_run:
+        calls = [
+            {
+                "name": member_spec(member),
+                "argv": argv,
+                "cwd": str(share) if share else "<new empty temp dir>",
+                "prompt": prompt,
+            }
+            for member, argv in zip(chosen, argvs, strict=True)
+        ]
+        payload = {"version": 1, "dry_run": True, "members": calls}
+    else:
+        results = run_members(chosen, prompt, timeout=seconds, project_root=share)
+        payload = {"version": 1, "members": [r.to_json() for r in results]}
+    return 0, payload
+
+
+def _read_payload(path: str | None) -> str:
+    """Read the payload as UTF-8 from a file or stdin, whatever the code page.
+
+    Args:
+        path: str | None - Payload file; None reads stdin.
+
+    Returns:
+        str - The text.
+
+    Raises:
+        CouncilError: If the file cannot be read or the bytes are not UTF-8.
+
+    """
+    if path is None:
+        buffer = cast("io.BufferedIOBase | None", getattr(sys.stdin, "buffer", None))
+        data = buffer.read() if buffer is not None else sys.stdin.read().encode()
+    else:
+        try:
+            data = Path(path).read_bytes()
+        except OSError as error:
+            msg = f"council payload {path}: {error.strerror or error}"
+            raise CouncilError(msg) from None
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError as error:
+        msg = f"council payload is not UTF-8: {error}"
+        raise CouncilError(msg) from None
 
 
 def _install(harness: str, scope: str, *, copy: bool, dry_run: bool) -> int:
@@ -214,7 +375,7 @@ def _detect(*, as_json: bool) -> int:
     """
     signals = brownfield_signals(Path.cwd())
     recommended = recommend_backend(signals)
-    clis = available_clis()
+    clis = cli_report()
     if as_json:
         payload = {
             "version": 1,
@@ -224,17 +385,32 @@ def _detect(*, as_json: bool) -> int:
                 "commit_count": signals.commit_count,
             },
             "recommended_backend": str(recommended),
-            "clis": clis,
+            "clis": {
+                name: {
+                    "installed": cli.installed,
+                    "authenticated": cli.authenticated,
+                    "experimental": cli.experimental,
+                }
+                for name, cli in clis.items()
+            },
         }
         _ = sys.stdout.write(json.dumps(payload) + "\n")
         return 0
-    found = ", ".join(name for name, present in clis.items() if present) or "none"
+    auth = {True: "logged in", False: "not logged in", None: "auth unknown"}
+    found = (
+        ", ".join(
+            f"{name} ({auth[cli.authenticated]})"
+            for name, cli in clis.items()
+            if cli.installed
+        )
+        or "none"
+    )
     lines = (
         f"source code: {signals.has_source}",
         f"openspec/: {signals.has_openspec}",
         f"commits: {signals.commit_count}",
         f"recommended backend: {recommended}",
-        f"agent CLIs on PATH: {found}",
+        f"agent CLIs: {found}",
     )
     _ = sys.stdout.write("\n".join(lines) + "\n")
     return 0
@@ -348,6 +524,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         "detect": lambda: _detect(as_json=cast("bool", args.json)),
         "approve": lambda: _approve(cast("str", args.stage)),
+        "council": lambda: _council_ask(
+            cast("str | None", args.members),
+            cast("int | None", args.timeout),
+            cast("str | None", args.payload),
+            cast("str | None", args.out),
+            dry_run=cast("bool", args.dry_run),
+        ),
         "new": lambda: _new(
             cast("str", args.slug),
             switch=cast("bool", args.switch),
@@ -366,6 +549,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     try:
         return handlers[cast("str", args.command)]()
-    except (ConfigError, InstallConflictError, ChangeError) as error:
+    except (ConfigError, InstallConflictError, ChangeError, CouncilError) as error:
         _ = sys.stderr.write(f"grillspec: {error}\n")
         return 1

@@ -1,7 +1,8 @@
 # Конфигурация
 
 grillspec читает два TOML-файла и сливает их **по ключам**: проектный файл важнее
-пользовательского, а тот — встроенных значений по умолчанию.
+пользовательского, а тот — встроенных значений по умолчанию. Одно исключение:
+`council.external = "never"` побеждает из любого файла.
 
 | Уровень | Путь | Что обычно там |
 |---|---|---|
@@ -23,6 +24,9 @@ depth = "standard"            # quick | standard | deep
 [council]
 enabled = "ask"               # ask | yes | no
 members = []                  # например ["role:devil", "role:simplicity", "cli:gemini"]
+external = "allow"            # allow | never
+timeout = 120                 # секунд на внешнего участника, 1–600
+share_project = false         # запускать внешних участников в папке проекта
 
 [gates]
 enabled = true
@@ -34,7 +38,10 @@ enabled = true
 | `spec.artifacts_language` | `auto` | Язык спеков и планов. `auto` следует языку существующих документов проекта, а в пустом репозитории — языку разговора. Ключевые слова OpenSpec в любом случае остаются английскими. |
 | `grill.depth` | `standard` | Глубина гриля: `quick` спрашивает раундами с бюджетом около 5 вопросов, `standard` — по одному, около 15, `deep` — без бюджета. Изменение начинается в фазе `grill` (`grillspec new`) и выходит из неё по `grillspec approve grill`; см. [Как работает гриль](how-it-works/grilling.md). |
 | `council.enabled` | `ask` | Советоваться ли во время гриля с council независимых перспектив; `ask` спрашивает в начале каждой сессии гриля. |
-| `council.members` | `[]` | Участники council по умолчанию. |
+| `council.members` | `[]` | Участники council: `role:simplicity`, `role:devil`, `role:risk` (субагенты) и `cli:<vendor>[@<model>]`, где vendor — `claude`, `codex`, `cursor-agent`, `gemini`, `agy` или `gigacode`. Пусто: три роли плюс каждый установленный и залогиненный CLI, кроме экспериментальных. См. [Как работает council](how-it-works/council.md). |
+| `council.external` | `allow` | `never` запрещает внешние CLI в council; побеждает из любого файла. |
+| `council.timeout` | `120` | Сколько секунд даётся каждому внешнему участнику, потом он останавливается. |
+| `council.share_project` | `false` | `true` запускает внешних участников в папке проекта (всё так же только на чтение), а не в пустой временной. |
 | `gates.enabled` | `true` | Активны ли ворота между фазами. |
 
 ## Ключ `version`

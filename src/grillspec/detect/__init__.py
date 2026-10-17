@@ -2,6 +2,20 @@
 
 from __future__ import annotations
 
-from ._detect import Signals, available_clis, brownfield_signals, recommend_backend
+from ._detect import (
+    CliStatus,
+    Signals,
+    available_clis,
+    brownfield_signals,
+    cli_report,
+    recommend_backend,
+)
 
-__all__ = ("Signals", "available_clis", "brownfield_signals", "recommend_backend")
+__all__ = (
+    "CliStatus",
+    "Signals",
+    "available_clis",
+    "brownfield_signals",
+    "cli_report",
+    "recommend_backend",
+)

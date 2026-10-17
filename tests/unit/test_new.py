@@ -128,3 +128,19 @@ def test_cli_new(
     assert "--switch" in capsys.readouterr().err
     assert main(["status", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["phase"] == "grill"
+
+
+def test_council_metadata_has_calls_counter(tmp_path: Path):
+    config = Config(backend=Backend.SUPERPOWERS)
+    with_council = create_change(
+        tmp_path, config, "a", today=dt.date(2026, 10, 17), council=True
+    )
+    assert with_council.log_path is not None
+    assert "council=yes budget=15 asked=0 council_calls=0 -->" in (
+        with_council.log_path.read_text(encoding="utf-8")
+    )
+    without = create_change(
+        tmp_path, config, "b", today=dt.date(2026, 10, 17), switch=True
+    )
+    assert without.log_path is not None
+    assert "council_calls" not in without.log_path.read_text(encoding="utf-8")

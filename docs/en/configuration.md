@@ -1,7 +1,8 @@
 # Configuration
 
 grillspec reads two TOML files and merges them **per key**: the project file wins over
-the user file, which wins over the built-in defaults.
+the user file, which wins over the built-in defaults. One exception:
+`council.external = "never"` wins in either file.
 
 | Level | Path | Typical content |
 |---|---|---|
@@ -23,6 +24,9 @@ depth = "standard"            # quick | standard | deep
 [council]
 enabled = "ask"               # ask | yes | no
 members = []                  # e.g. ["role:devil", "role:simplicity", "cli:gemini"]
+external = "allow"            # allow | never
+timeout = 120                 # seconds per external member, 1–600
+share_project = false         # run external members in the project directory
 
 [gates]
 enabled = true
@@ -34,7 +38,10 @@ enabled = true
 | `spec.artifacts_language` | `auto` | Language of specs and plans. `auto` follows the project's existing docs, or the conversation in an empty repository. OpenSpec keywords stay English either way. |
 | `grill.depth` | `standard` | How deep grilling goes: `quick` asks in rounds with a budget of about 5 questions, `standard` one at a time with about 15, `deep` without a budget. A change starts in the `grill` phase (`grillspec new`) and leaves it with `grillspec approve grill`; see [How grilling works](how-it-works/grilling.md). |
 | `council.enabled` | `ask` | Whether grilling consults a council of independent perspectives; `ask` asks at the start of each grilling session. |
-| `council.members` | `[]` | Default council members. |
+| `council.members` | `[]` | Council members: `role:simplicity`, `role:devil`, `role:risk` (subagents) and `cli:<vendor>[@<model>]` with vendor `claude`, `codex`, `cursor-agent`, `gemini`, `agy` or `gigacode`. Empty: the three roles plus every installed, logged-in CLI except experimental ones. See [How the council works](how-it-works/council.md). |
+| `council.external` | `allow` | `never` forbids external CLIs on the council; it wins in either file. |
+| `council.timeout` | `120` | Seconds each external member may take before it is stopped. |
+| `council.share_project` | `false` | `true` runs external members in the project directory (still read-only) instead of an empty temporary one. |
 | `gates.enabled` | `true` | Whether phase gates are active. |
 
 ## The `version` key

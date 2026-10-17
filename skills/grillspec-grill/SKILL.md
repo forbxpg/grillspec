@@ -30,11 +30,13 @@ session-start context (or `uvx grillspec`).
      `standard` for a feature; `deep` for anything hard to reverse (schema, public
      API, infrastructure, security);
    - a council, only if a `grillspec-council` skill is installed and
-     `council.enabled` is `ask` in the config.
+     `council.enabled` is `ask` in the config. Name the members it would use (see
+     that skill) and the cost: `≈ <decisions> × <members> calls (standard ≈ 4
+     decisions, deep ≈ 15); external calls spend your vendor quotas`.
 3. Run `grillspec new <slug> --depth <depth>` (add `--council` when chosen, and
    `--switch` when the user chose to start it while another change is active).
-   If the depth or council differs from the configured default, offer once to
-   make it the default in the user's config.
+   If the depth, council or council members differ from the configured default,
+   offer once to make them the default in the user's config.
 
 ## 2. Build the decision tree
 
@@ -65,9 +67,9 @@ For standard and deep use the harness's multiple-choice tool when it has one
 
 Every decision you put carries: your recommendation first, marked
 `(Recommended)`; the real trade-off of each option; whether it is cheap or costly
-to reverse. With a council: add its options and any dissent — on standard for root
-and hard-to-reverse decisions, on deep for every decision. Same-model agreement is
-a weak signal; say so.
+to reverse. With a council (`council=yes` in the metadata), follow
+`grillspec-council` — on standard for root and hard-to-reverse decisions, on deep
+for every decision.
 
 ## 4. Log every answer — immediately
 

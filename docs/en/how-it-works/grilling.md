@@ -10,6 +10,8 @@ The agent asks one setup question — a name for the change, the depth, and (whe
 council is installed) whether to use one — then runs `grillspec new <slug>`. That
 creates the change, makes it active and starts its decision log. The change is now
 in the `grill` phase.
+With a council, hard decisions also carry the views of other models; see
+[How the council works](council.md).
 
 ## Depths
 

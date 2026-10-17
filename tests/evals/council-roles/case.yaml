@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: council-roles
+tags: [council]
+context:
+  scaffold_script: fixture.sh

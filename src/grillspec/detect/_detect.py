@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
-from grillspec.config import Backend
+from grillspec.config import VENDOR_NAMES, Backend
+from grillspec.council import VENDORS, auth_state, resolve_cli
 
 CODE_SUFFIXES = frozenset({
     ".c",
@@ -58,7 +59,7 @@ CODE_SUFFIXES = frozenset({
 })
 SKIPPED_DIRS = frozenset({".git", ".venv", "node_modules", "docs", "dist", "build"})
 LONG_HISTORY = 100
-AGENT_CLIS = ("claude", "cursor-agent", "codex", "agy", "gigacode")
+AGENT_CLIS = VENDOR_NAMES
 
 
 @dataclass(frozen=True)
@@ -105,7 +106,7 @@ def _commit_count(root: Path) -> int:
             repository's history does not count) or git is missing.
 
     """
-    git = shutil.which("git")
+    git = resolve_cli("git")
     # `git -C` walks up to a parent repository; only this project's history counts.
     if git is None or not (root / ".git").exists():
         return 0
@@ -162,4 +163,49 @@ def available_clis() -> dict[str, bool]:
         dict[str, bool] - CLI name to presence.
 
     """
-    return {name: shutil.which(name) is not None for name in AGENT_CLIS}
+    return {name: resolve_cli(name) is not None for name in AGENT_CLIS}
+
+
+@dataclass(frozen=True)
+class CliStatus:
+    """Whether an agent CLI can sit on the council.
+
+    Attributes:
+        installed: bool - Found on PATH.
+        authenticated: bool | None - Logged in; None when it cannot be told
+            without spending tokens, or the CLI is not installed.
+        experimental: bool - Not offered unless configured explicitly.
+
+    """
+
+    installed: bool
+    authenticated: bool | None
+    experimental: bool
+
+
+def cli_report() -> dict[str, CliStatus]:
+    """Report presence and login state of every known agent CLI.
+
+    Returns:
+        dict[str, CliStatus] - Vendor name to status, in ``VENDOR_NAMES`` order;
+            only installed CLIs are probed, in parallel.
+
+    """
+    found = {name: resolve_cli(name) for name in AGENT_CLIS}
+    installed = {name: path for name, path in found.items() if path is not None}
+    with ThreadPoolExecutor(max_workers=max(len(installed), 1)) as pool:
+        states = dict(
+            zip(
+                installed,
+                pool.map(auth_state, installed, installed.values()),
+                strict=True,
+            )
+        )
+    return {
+        name: CliStatus(
+            installed=name in installed,
+            authenticated=states.get(name),
+            experimental=VENDORS[name].experimental,
+        )
+        for name in AGENT_CLIS
+    }

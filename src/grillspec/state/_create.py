@@ -42,9 +42,10 @@ def _skeleton(change_id: str, backend: Backend, depth: Depth, *, council: bool) 
     title = (
         f"# {change_id}" if backend is Backend.SUPERPOWERS else f"# Design: {change_id}"
     )
+    calls = " council_calls=0" if council else ""
     meta = (
         f"<!-- grillspec: depth={depth} council={'yes' if council else 'no'}"
-        f" budget={_BUDGET[depth]} asked=0 -->"
+        f" budget={_BUDGET[depth]} asked=0{calls} -->"
     )
     return f"{title}\n\n## Decision log\n\n{meta}\n\n### Open\n\n### Settled\n"
 

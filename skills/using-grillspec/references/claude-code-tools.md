@@ -6,6 +6,7 @@
 | Dispatch a subagent | `Agent` tool; name the model explicitly for reviewers. |
 | Track tasks | The todo / task tools your version provides. |
 | Run a command | `Bash`. |
+| Run a command in the background | `Bash` with `run_in_background: true`; you are told when it finishes. |
 
 Session start: the plugin's `SessionStart` hook injects this router and the
 status line.

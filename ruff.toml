@@ -55,6 +55,8 @@ required-imports = ["from __future__ import annotations"]
 ]
 # git is called with a fixed argument list, never a shell.
 "src/grillspec/detect/_detect.py" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true"]
+# Agent CLIs run from a resolved path with fixed flags and the prompt on stdin.
+"src/grillspec/council/_proc.py" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true"]
 
 [format]
 preview = true

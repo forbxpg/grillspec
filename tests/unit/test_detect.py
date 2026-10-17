@@ -71,6 +71,7 @@ def test_available_clis_reports_known_names():
         "claude",
         "cursor-agent",
         "codex",
+        "gemini",
         "agy",
         "gigacode",
     }

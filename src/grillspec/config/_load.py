@@ -10,7 +10,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from ._model import Backend, Config, CouncilMode, Depth
+from ._model import (
+    Backend,
+    Config,
+    CouncilMode,
+    Depth,
+    External,
+    parse_member,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -120,13 +127,64 @@ def _strings(value: object, origin: str) -> object:
     return tuple(cast("list[str]", items))
 
 
+def _members(value: object, origin: str) -> object:
+    """Accept a list of council member entries.
+
+    Args:
+        value: object - Raw value.
+        origin: str - Key and file, for the error message.
+
+    Returns:
+        object - The entries as a tuple.
+
+    Raises:
+        ConfigError: If an entry is not a valid member.
+
+    """
+    items = cast("tuple[str, ...]", _strings(value, origin))
+    for item in items:
+        try:
+            _ = parse_member(item)
+        except ValueError as error:
+            msg = f"{origin}: {error}"
+            raise ConfigError(msg) from None
+    return items
+
+
+MIN_TIMEOUT = 1
+MAX_TIMEOUT = 600
+
+
+def _timeout(value: object, origin: str) -> object:
+    """Accept a whole number of seconds within bounds.
+
+    Args:
+        value: object - Raw value.
+        origin: str - Key and file, for the error message.
+
+    Returns:
+        object - The value.
+
+    Raises:
+        ConfigError: If the value is not an integer from 1 to 600.
+
+    """
+    if type(value) is not int or not MIN_TIMEOUT <= value <= MAX_TIMEOUT:
+        msg = f"{origin} must be a whole number of seconds from 1 to 600"
+        raise ConfigError(msg)
+    return value
+
+
 # Dotted key -> (Config field, parser).
 _SCHEMA: dict[str, tuple[str, Callable[[object, str], object]]] = {
     "spec.backend": ("backend", _choice(Backend)),
     "spec.artifacts_language": ("artifacts_language", _string),
     "grill.depth": ("depth", _choice(Depth)),
     "council.enabled": ("council_enabled", _choice(CouncilMode)),
-    "council.members": ("council_members", _strings),
+    "council.members": ("council_members", _members),
+    "council.external": ("council_external", _choice(External)),
+    "council.timeout": ("council_timeout", _timeout),
+    "council.share_project": ("council_share_project", _boolean),
     "gates.enabled": ("gates_enabled", _boolean),
 }
 
@@ -206,5 +264,11 @@ def load_config(project_root: Path, *, user_path: Path | None = None) -> LoadedC
     """
     user_values, user_warnings = _read(user_path or user_config_path())
     project_values, project_warnings = _read(project_root / PROJECT_CONFIG)
-    config = dataclasses.replace(Config(), **{**user_values, **project_values})
+    merged = {**user_values, **project_values}
+    # Opting out of external members in either file wins: a project cannot
+    # re-enable what the user turned off, nor the user what the project did.
+    layers = (user_values, project_values)
+    if any(layer.get("council_external") is External.NEVER for layer in layers):
+        merged["council_external"] = External.NEVER
+    config = dataclasses.replace(Config(), **merged)
     return LoadedConfig(config, tuple(user_warnings + project_warnings))
