@@ -70,7 +70,7 @@ MD
   printf 'version = 1\ngrilled = 2026-10-17\n' > .grillspec/changes/2026-10-17-webhooks.toml
   printf '{"version": 1, "active": "2026-10-17-webhooks"}\n' > .grillspec/state.json
 fi
-if [ "${1:-}" = specced ]; then
+if [ "${1:-}" = specced ] || [ "${1:-}" = planned ]; then
   mkdir -p docs/grillspec/specs .grillspec/changes
   cat > docs/grillspec/specs/2026-10-17-webhooks.md <<'MD'
 # 2026-10-17-webhooks
@@ -106,5 +106,38 @@ MD
   printf 'version = 1\ngrilled = 2026-10-17\nspec_approved = 2026-10-17\n' > .grillspec/changes/2026-10-17-webhooks.toml
   printf '{"version": 1, "active": "2026-10-17-webhooks"}\n' > .grillspec/state.json
   printf '# Agents\n\n<!-- grillspec:begin -->\n## grillspec\n<!-- grillspec:end -->\n' > AGENTS.md
+fi
+if [ "${1:-}" = planned ]; then
+  mkdir -p docs/grillspec/plans
+  cat > docs/grillspec/plans/2026-10-17-webhooks.md <<'MD'
+# 2026-10-17-webhooks — plan
+
+## Goal
+
+Retry failed webhook deliveries with backoff.
+
+**Spec:** docs/grillspec/specs/2026-10-17-webhooks.md
+
+## Global Constraints
+
+- Tests run with uv run pytest -q.
+
+## Review Focus
+
+none found
+
+## 1. Retries
+
+- [ ] 1.1 Backoff schedule — verify: uv run pytest -q passes
+
+Covers: WH-1 · Test: scenario-first
+
+Files: create src/retry.py; test tests/test_retry.py
+
+1. Write test_three_retries_back_off. Expected: FAIL
+2. Implement retry_delays() -> list[float] returning [1, 2, 4].
+3. Run uv run pytest -q. Expected: PASS
+MD
+  printf 'plan_approved = 2026-10-17\nexecutor = "inline"\n' >> .grillspec/changes/2026-10-17-webhooks.toml
 fi
 git add -A && git commit -qm init

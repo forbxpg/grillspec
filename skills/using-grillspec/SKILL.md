@@ -22,7 +22,8 @@ decide which row applies:
 Unsure between two rows? Take the lower one. One extra question costs less than
 one rework.
 
-Debugging, test-driven development and verification skills keep their own triggers
+Debugging, test-driven development and verification skills (`grillspec-debugging`,
+`grillspec-tdd`, `grillspec-verification`) keep their own triggers
 whatever the row.
 
 ## The pipeline
@@ -34,7 +35,7 @@ whatever the row.
 | grill | `grillspec-grill`, with `grillspec-council` when the council is on | a decision log (Open / Settled), confirmed by the user |
 | spec | `grillspec-specs`, then `grillspec-memory` | an approved spec; approved memory entries |
 | plan | `grillspec-plans` | an approved plan |
-| execute | `subagent-driven-development` or `executing-plans`, with `test-driven-development`, `systematic-debugging`, `verification-before-completion` | code and green tests |
+| execute | `grillspec-subagent-execution` or `grillspec-inline-execution` (the plan's executor), with `grillspec-tdd`, `grillspec-debugging`, `grillspec-verification`, then `grillspec-finishing` | code and green tests; every task ticked |
 | archive | `grillspec-archive` | the change merged into the living specs, or marked implemented |
 
 If a skill named here is not installed yet, tell the user which phase you are in

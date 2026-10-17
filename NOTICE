@@ -12,6 +12,15 @@ Superpowers 7.0.0 — https://github.com/obra/superpowers
   the execution workflow (subagent-driven development, executing plans), systematic
   debugging, verification and code-review practices; the method for writing and
   pressure-testing skills.
+  Skills adapted from Superpowers 7.0.0 (text kept where it still holds; renamed,
+  re-pointed to `grillspec exec` and the grillspec plan format):
+  subagent-driven-development → grillspec-subagent-execution, executing-plans →
+  grillspec-inline-execution, test-driven-development → grillspec-tdd,
+  systematic-debugging → grillspec-debugging, verification-before-completion →
+  grillspec-verification, requesting-code-review → grillspec-requesting-review,
+  receiving-code-review → grillspec-receiving-review, using-git-worktrees →
+  grillspec-worktrees, finishing-a-development-branch → grillspec-finishing,
+  dispatching-parallel-agents → grillspec-parallel-agents.
 
 OpenSpec 1.14.2 — https://github.com/Fission-AI/OpenSpec
   Copyright (c) Fission AI. MIT License.

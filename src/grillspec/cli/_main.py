@@ -23,6 +23,14 @@ from grillspec.council import (
     run_members,
 )
 from grillspec.detect import brownfield_signals, cli_report, recommend_backend
+from grillspec.execute import (
+    ExecError,
+    ExecTarget,
+    finish_task,
+    review_package,
+    start_task,
+    workspace,
+)
 from grillspec.hooks import Harness, render_session_start, session_context
 from grillspec.init import init_project
 from grillspec.install import InstallConflictError, Scope, install, uninstall
@@ -59,6 +67,28 @@ from grillspec.state import (
 if TYPE_CHECKING:
     import io
     from collections.abc import Callable, Sequence
+
+
+def _add_exec(execute: argparse.ArgumentParser) -> None:
+    """Add ``exec workspace|start|done|review-package`` to the ``exec`` parser.
+
+    Args:
+        execute: argparse.ArgumentParser - The ``exec`` sub-parser.
+
+    """
+    actions = execute.add_subparsers(dest="exec_command", required=True)
+    _ = actions.add_parser("workspace", help="print the execution workspace")
+    start = actions.add_parser("start", help="write a task's brief; print BASE")
+    _ = start.add_argument("task", help="task number, N.M")
+    done = actions.add_parser("done", help="run a task's tests; tick it on success")
+    _ = done.add_argument("task", help="task number, N.M")
+    _ = done.add_argument("base", help="BASE printed by start")
+    _ = done.add_argument(
+        "test_command", nargs=argparse.REMAINDER, help="-- <test command>"
+    )
+    review = actions.add_parser("review-package", help="write a review diff")
+    _ = review.add_argument("base")
+    _ = review.add_argument("head", nargs="?", default="HEAD")
 
 
 def _add_memory(memory: argparse.ArgumentParser) -> None:
@@ -139,6 +169,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = new.add_argument("--council", action="store_true", help="grill with a council")
     _add_council(commands.add_parser("council", help="ask external agent CLIs"))
     _add_memory(commands.add_parser("memory", help="project memory in AGENTS.md"))
+    _add_exec(commands.add_parser("exec", help="helpers that execute the plan"))
     check = commands.add_parser("validate", help="check a change's spec")
     _ = check.add_argument("change_id", nargs="?", help="change id (default: active)")
     _ = check.add_argument("--json", action="store_true", help="print JSON")
@@ -445,6 +476,87 @@ def _validate(change_id: str | None, *, as_json: bool) -> int:
     return 1 if report.errors else 0
 
 
+def _exec_target(root: Path) -> ExecTarget | str:
+    """Resolve the change ``grillspec exec`` acts on.
+
+    Args:
+        root: Path - Project root.
+
+    Returns:
+        ExecTarget | str - The target, or the one-line reason there is none.
+
+    """
+    backend = load_config(root).config.backend
+    if backend is None or not (root / ".grillspec" / "config.toml").is_file():
+        return "grillspec is not set up here; run grillspec init"
+    change_id, _ = active_change_id(root)
+    if change_id is None:
+        return "no active change; run grillspec use <id>"
+    return ExecTarget(root, plan_path(root, backend, change_id), change_id)
+
+
+def _exec_run(target: ExecTarget, args: argparse.Namespace) -> int:
+    """Run one execution helper.
+
+    Args:
+        target: ExecTarget - The change being executed.
+        args: argparse.Namespace - Parsed ``exec`` arguments.
+
+    Returns:
+        int - Exit code.
+
+    Raises:
+        ExecError: If the helper cannot do what was asked.
+
+    """
+    action = cast("str", args.exec_command)
+    if action == "workspace":
+        return _print(workspace(target.root, target.change_id).resolve().as_posix())
+    if action == "review-package":
+        base, head = cast("str", args.base), cast("str", args.head)
+        path = review_package(target.root, target.change_id, base, head)
+        return _print(path.resolve().as_posix())
+    if not target.plan.is_file():
+        where = target.plan.relative_to(target.root).as_posix()
+        msg = f"no plan at {where}"
+        raise ExecError(msg)
+    if action == "start":
+        brief, base = start_task(target, cast("str", args.task))
+        _ = sys.stdout.write(f"brief: {brief.resolve().as_posix()}\n")
+        return _print(f"base: {base}")
+    command = list(cast("list[str]", args.test_command))
+    command = command[1:] if command[:1] == ["--"] else command
+    task, base = cast("str", args.task), cast("str", args.base)
+    code, tail = finish_task(target, task, base, command)
+    if tail:
+        _ = sys.stdout.write(tail + "\n")
+    return code
+
+
+def _exec(args: argparse.Namespace) -> int:
+    """Run one execution helper on the active change's plan.
+
+    Args:
+        args: argparse.Namespace - Parsed ``exec`` arguments.
+
+    Returns:
+        int - Exit code: 1 for setup problems, 3 for a bad review range, the
+            test command's own code for ``done``.
+
+    """
+    target = _exec_target(project_root(Path.cwd()))
+    if isinstance(target, str):
+        _ = sys.stderr.write(
+            f"grillspec: {target}\n" if "not set up" not in target else f"{target}\n"
+        )
+        return 1
+    try:
+        return _exec_run(target, args)
+    except ExecError as error:
+        _ = sys.stderr.write(f"grillspec: {error}\n")
+        return error.code
+
+
 def _memory(args: argparse.Namespace) -> int:
     """List, add or retire remembered facts in the project's AGENTS.md.
 
@@ -734,6 +846,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             cast("str", args.stage), cast("str | None", args.executor)
         ),
         "memory": lambda: _memory(args),
+        "exec": lambda: _exec(args),
         "council": lambda: _council_ask(
             cast("str | None", args.members),
             cast("int | None", args.timeout),

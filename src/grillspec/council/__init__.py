@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ._contract import extract_contract
-from ._proc import run_tree
+from ._proc import killing_on_exit, run_tree
 from ._prompt import CouncilError, Payload, parse_payload, render_prompt
 from ._run import MemberResult, member_spec, resolve_members, run_members
 from ._vendors import (
@@ -26,6 +26,7 @@ __all__ = (
     "auth_state",
     "build_argv",
     "extract_contract",
+    "killing_on_exit",
     "member_spec",
     "parse_answer",
     "parse_payload",

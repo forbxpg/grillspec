@@ -203,9 +203,12 @@ def test_executor_skill_named_when_installed(
     project: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ):
     assert main(["approve", "plan", "--executor", "inline"]) == 0
+    empty = project / "empty-data"
+    empty.mkdir()
+    monkeypatch.setattr("grillspec.state._phase.data_root", lambda: empty)
     status = _status(capsys)
     assert status["phase"] == "execute"
-    assert "grillspec-inline-execution" not in str(status["next"])
+    assert status["next"] == "execute the plan"
     data = project / "data"
     write(data / "skills/grillspec-inline-execution/SKILL.md", "x")
     monkeypatch.setattr("grillspec.state._phase.data_root", lambda: data)
