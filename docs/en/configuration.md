@@ -30,6 +30,7 @@ share_project = false         # run external members in the project directory
 
 [gates]
 enabled = true
+allow = []                    # extra globs the gate allows, e.g. ["notes/*"]
 ```
 
 | Key | Default | Meaning |
@@ -43,6 +44,7 @@ enabled = true
 | `council.timeout` | `120` | Seconds each external member may take before it is stopped. |
 | `council.share_project` | `false` | `true` runs external members in the project directory (still read-only) instead of an empty temporary one. |
 | `gates.enabled` | `true` | Whether phase gates are active. |
+| `gates.allow` | `[]` | Extra globs (relative to the project root, `*` crosses `/`) that the gate lets the agent edit. See [How phase gates work](how-it-works/gates.md). |
 
 ## The `version` key
 

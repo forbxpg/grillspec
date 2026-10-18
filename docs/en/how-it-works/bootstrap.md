@@ -50,7 +50,8 @@ A hook that crashes or blocks would take the agent down with it, so the bootstra
 does either:
 
 - **No Python 3.11+** — the hook runner says so in the context ("gates are OFF") using
-  plain shell, and exits successfully.
+  plain shell, and exits successfully; the pre-tool gate then lets every call through
+  (see [How phase gates work](gates.md)).
 - **A broken config or state file** — the problem becomes a `WARNING:` line; the router
   still loads.
 - **Any other error** — reported as "grillspec bootstrap failed: …"; the session goes on.
