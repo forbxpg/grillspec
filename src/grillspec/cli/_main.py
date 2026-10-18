@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from grillspec import __version__
+from grillspec.archive import ArchiveError, archive_change
 from grillspec.blocks import BlockError
 from grillspec.config import Backend, ConfigError, Depth, External, load_config
 from grillspec.council import (
@@ -170,6 +171,9 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_council(commands.add_parser("council", help="ask external agent CLIs"))
     _add_memory(commands.add_parser("memory", help="project memory in AGENTS.md"))
     _add_exec(commands.add_parser("exec", help="helpers that execute the plan"))
+    _ = commands.add_parser(
+        "archive", help="archive the done active change"
+    ).add_argument("--dry-run", action="store_true", help="only list it")
     check = commands.add_parser("validate", help="check a change's spec")
     _ = check.add_argument("change_id", nargs="?", help="change id (default: active)")
     _ = check.add_argument("--json", action="store_true", help="print JSON")
@@ -557,6 +561,33 @@ def _exec(args: argparse.Namespace) -> int:
         return error.code
 
 
+def _archive(*, dry_run: bool) -> int:
+    """Archive the active change and print what changed.
+
+    Args:
+        dry_run: bool - Only list the operations.
+
+    Returns:
+        int - Exit code: 1 when grillspec is not set up or the change cannot be
+            archived.
+
+    """
+    root = project_root(Path.cwd())
+    config = load_config(root).config
+    if config.backend is None:
+        _ = sys.stderr.write("grillspec is not set up here; run grillspec init\n")
+        return 1
+    today = dt.datetime.now().astimezone().date()
+    try:
+        ops = archive_change(root, config, today=today, dry_run=dry_run)
+    except ArchiveError as error:
+        _ = sys.stderr.write(f"grillspec: {error}\n")
+        return 1
+    for line in ops:
+        _ = sys.stdout.write(f"{'would ' if dry_run else ''}{line}\n")
+    return 0
+
+
 def _memory(args: argparse.Namespace) -> int:
     """List, add or retire remembered facts in the project's AGENTS.md.
 
@@ -847,6 +878,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         "memory": lambda: _memory(args),
         "exec": lambda: _exec(args),
+        "archive": lambda: _archive(dry_run=cast("bool", args.dry_run)),
         "council": lambda: _council_ask(
             cast("str | None", args.members),
             cast("int | None", args.timeout),

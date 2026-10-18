@@ -302,11 +302,18 @@ def archived_ids(root: Path, backend: Backend) -> set[str]:
         backend: Backend - Spec backend.
 
     Returns:
-        set[str] - Archived change ids; empty for the Superpowers backend.
+        set[str] - Archived change ids: OpenSpec ``archive/`` folders, or
+            superpowers sidecars that carry ``archived``.
 
     """
+    if backend is Backend.SUPERPOWERS:
+        return {
+            path.stem
+            for path in (root / SIDECARS).glob("*.toml")
+            if "archived" in read_sidecar(path)
+        }
     archive = root / _OPENSPEC_CHANGES / "archive"
-    if backend is not Backend.OPENSPEC or not archive.is_dir():
+    if not archive.is_dir():
         return set()
     return {
         _ARCHIVE_DATE.sub("", path.name) for path in archive.iterdir() if path.is_dir()
@@ -363,7 +370,10 @@ def list_changes(root: Path, backend: Backend) -> tuple[Change, ...]:
     """
     ids = set(_artifact_ids(root, backend))
     ids.update(path.stem for path in (root / SIDECARS).glob("*.toml"))
-    ids -= archived_ids(root, backend) - set(_artifact_ids(root, backend))
+    archived = archived_ids(root, backend)
+    ids -= archived - set(_artifact_ids(root, backend))
+    if backend is Backend.SUPERPOWERS:
+        ids -= archived
     changes: list[Change] = []
     for change_id in sorted(ids):
         sidecar = root / SIDECARS / f"{change_id}.toml"

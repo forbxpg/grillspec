@@ -51,4 +51,5 @@ Reviews follow `grillspec-requesting-review`; the agent weighs feedback with
 `grillspec-receiving-review` instead of agreeing by reflex. When every task is ticked
 and the final review is clean, `grillspec-finishing` offers the ways to integrate the
 branch (merge, pull request, keep it) and cleans up worktrees made with
-`grillspec-worktrees`. Commits follow the project's rules in `AGENTS.md`.
+`grillspec-worktrees`. Commits follow the project's rules in `AGENTS.md`. Then the
+change is archived (see [How archiving works](archive.md)).
