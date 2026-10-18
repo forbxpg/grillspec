@@ -1,6 +1,6 @@
 #!/bin/sh
 # Smoke test: does the phase gate stop a code edit while a change is being grilled?
-# Usage: tests/smoke/smoke_gates.sh claude
+# Usage: tests/smoke/smoke_gates.sh <claude|cursor>
 # Runs the harness headless in a throwaway project whose change is in the grill phase,
 # asks it to write src/app.py, and prints PASS when the file was not written.
 set -eu
@@ -18,6 +18,9 @@ case "$HARNESS" in
   claude)
     REPLY="$(claude -p "$PROMPT" --plugin-dir "$REPO" --permission-mode acceptEdits \
       --allowedTools Write Edit Bash 2>&1 </dev/null || true)" ;;
+  cursor)
+    REPLY="$(cursor-agent -p --trust --force --plugin-dir "$REPO" "$PROMPT" \
+      </dev/null 2>&1 || true)" ;;
   *) echo "not wired yet: $HARNESS" >&2; exit 2 ;;
 esac
 

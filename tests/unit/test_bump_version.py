@@ -33,9 +33,10 @@ def test_repo_is_in_sync():
 def test_check_reports_drift(tmp_path: Path):
     root = repo_copy(tmp_path)
     manifest = root / ".cursor-plugin/plugin.json"
+    current = bump_version.versions(root)["pyproject.toml"]
     text = manifest.read_text()
-    manifest.write_text(text.replace('"version": "0.0.1"', '"version": "0.0.2"'))
-    assert bump_version.drift(root) == [".cursor-plugin/plugin.json: 0.0.2"]
+    manifest.write_text(text.replace(f'"version": "{current}"', '"version": "9.9.9"'))
+    assert bump_version.drift(root) == [".cursor-plugin/plugin.json: 9.9.9"]
 
 
 def test_bump_aligns_all(tmp_path: Path):

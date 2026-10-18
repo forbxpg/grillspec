@@ -5,7 +5,8 @@ it to repeat the `grillspec:` status line it received at session start. PASS mea
 bootstrap reached the agent in that harness.
 
 - `claude` loads the plugin from this checkout with `--plugin-dir`; nothing is installed.
-- `codex`, `cursor`, `antigravity` need grillspec installed through their plugin
+- `cursor` loads the plugin from this checkout with `--plugin-dir` too.
+- `codex` and `antigravity` need grillspec installed through their plugin
   systems first (see `docs/en/installation.md`); Codex also needs the hooks trusted.
 - `gigacode` is installed into the temp repo by the script itself.
 
@@ -22,6 +23,10 @@ these results.
 | 2026-10-17 | Cursor | — | not run | `cursor-agent` not installed |
 | 2026-10-17 | Antigravity | — | not run | `agy` not installed; headless flag `-p` unverified |
 | 2026-10-17 | GigaCode | — | not run | `gigacode` not installed; headless flag `-p` unverified |
+| 2026-10-18 | Cursor | 2026.10.16-e3cb207 (`cursor-agent`) | PASS | `-p --trust --plugin-dir` |
+| 2026-10-18 | Codex | 0.149.1 | not run | not logged in |
+| 2026-10-18 | Antigravity | — | not run | `agy` not installed |
+| 2026-10-18 | GigaCode | 0.13.1 | not run | not logged in |
 
 ## Phase gates
 
@@ -32,6 +37,6 @@ agent saw the `grillspec gate:` refusal.
 | Date | Harness | Version | Result | Note |
 |---|---|---|---|---|
 | 2026-10-18 | Claude Code | 2.1.287 (Claude Code) | PASS | `--permission-mode acceptEdits` |
-| 2026-10-18 | Codex | — | not run | not wired yet; needs `/hooks` approval |
-| 2026-10-18 | Cursor | — | not run | not wired into the script yet |
-| 2026-10-18 | Antigravity | — | not run | not wired into the script yet |
+| 2026-10-18 | Codex | 0.149.1 | not run | not logged in; plugin hooks also need `/hooks` approval |
+| 2026-10-18 | Cursor | 2026.10.16-e3cb207 (`cursor-agent`) | PASS | `-p --trust --force --plugin-dir` |
+| 2026-10-18 | Antigravity | — | not run | `agy` not installed; the gate ships disabled |
