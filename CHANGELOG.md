@@ -9,6 +9,13 @@ release may break things and says so here.
 
 ### Added
 
+- Session memory: a per-project journal (`.grillspec/journal/memory.db`, never
+  committed) of grillspec events and the agent's `handoff`, `discovery`, `blocker` and
+  `todo` notes (`grillspec note`); a resume brief of at most 1,500 tokens at every
+  session start; `grillspec recall` to search, pin and forget; `grillspec ui`, a local
+  token-guarded viewer. Secrets and `<private>` text are never stored. No second LLM,
+  no network.
+
 - GigaCode: grillspec is a native GigaCode extension (`gigacode-extension.json`), linked
   from a local folder with `gigacode extensions link` — no npx, uv or network. It loads
   the router and the CLI line every session and brings phase gates for `write_file`,

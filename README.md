@@ -51,6 +51,10 @@ flowchart LR
 - **Nothing is lost to compaction.** Every answer goes into a decision log on disk the
   moment you give it. A session that runs out of context resumes from the log, not
   from a summary of a summary.
+- **Every session picks up where the last one stopped.** A local journal of events and
+  the agent's handoff notes becomes a short resume brief at the next session start,
+  searchable later and browsable in your browser — without a second LLM or a network
+  call.
 - **Specs you can test against.** Requirements carry scenarios with IDs (`WH-1`), every
   plan task names the scenarios it covers, and every test is written red-first from
   them. "Done" means a passing test, not a confident sentence.
@@ -64,7 +68,8 @@ flowchart LR
   question, never smoothed over.
 - **Five harnesses, one workflow.** The same skills, the same CLI and the same files
   in Claude Code, Cursor, Codex, Antigravity and GigaCode.
-- **Measured, not claimed.** Always-on cost is **about 2,100 tokens per session**,
+- **Measured, not claimed.** Always-on cost is **about 2,200 tokens per session** plus
+  a resume brief of at most 1,500 (0.1 measured at about 2,100 in Claude Code),
   measured in Claude Code; everything else loads only when a skill is used. A table
   generated in CI shows every skill's cost.
 - **Self-contained.** No runtime dependency on any other plugin. The CLI is
@@ -184,6 +189,22 @@ debugging, verification before any "done", code review in both directions, git
 worktrees and branch finishing — adapted from [Superpowers](https://github.com/obra/superpowers).
 → [How execution works](docs/en/how-it-works/execution.md)
 
+### 🧭 Session memory — `grillspec note`, `recall`, `ui`
+
+grillspec records its own events — a change started, an approval, a finished task, an
+archive — and the agent adds one-line notes: a `handoff` before the session ends (done,
+next, open) and a `discovery`, `blocker` or `todo` the moment it happens. The next
+session starts with a resume brief of at most 1,500 tokens: the active change and
+phase, pinned notes, the latest handoff, open blockers and todos, recent events.
+`grillspec recall <words>` searches the rest (Russian too), and `grillspec ui` opens a
+local, token-guarded page with the timeline, search, pin and delete.
+
+The journal is a SQLite file in `.grillspec/journal/` that git never sees. Secrets and
+`<private>` text are dropped before storage; command output and file contents are never
+stored. No second model summarises your session, so it costs nothing extra and works
+offline — GigaCode included.
+→ [How session memory works](docs/en/how-it-works/session-memory.md)
+
 ### 📦 Archive — `grillspec-archive`
 
 When the plan is done, `grillspec archive --dry-run` shows exactly what will change,
@@ -253,6 +274,9 @@ The skills drive the CLI for you; you rarely type these yourself.
 | `grillspec exec workspace\|start\|done\|review-package` | execution helpers: briefs, ticks, review packages |
 | `grillspec archive [--dry-run]` | merge a done change into the living specs |
 | `grillspec gate pause\|resume` | pause the phase gate (yours only, from a terminal) |
+| `grillspec note <kind> -- <text>` | a session-memory note: `handoff`, `discovery`, `blocker`, `todo` |
+| `grillspec recall [words] [--brief\|--pin\|--forget]` | search session memory, show the brief, pin or delete |
+| `grillspec ui` | the local session-memory viewer in your browser |
 | `grillspec tokens [--project]` | estimate what grillspec costs in context |
 | `grillspec install\|uninstall --harness <h>` | copy the skills into a harness, and remove exactly that |
 
@@ -285,9 +309,10 @@ allow = []                    # extra globs the gate lets the agent edit
 
 | Part | Loaded | ≈ tokens |
 |---|---|---|
-| router and status line | every session | 1,249 |
+| router and status line | every session | 1,343 |
 | skill catalogue (18 skills) | every session | 844 |
 | your memory block | every session | depends on it |
+| session-memory brief | every session | at most 1,500 |
 | any one skill | only when it is used | 360 – 5,000 |
 
 Measured in Claude Code with and without grillspec: **2,089 and 2,095 tokens** of
