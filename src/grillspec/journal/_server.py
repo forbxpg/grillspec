@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import socket
 import sys
 import webbrowser
 from http import HTTPStatus
@@ -223,6 +224,22 @@ class _Handler(BaseHTTPRequestHandler):
         self._json(200, {"ok": True})
 
 
+class _Server(ThreadingHTTPServer):
+    """A server that owns its port.
+
+    On Windows, SO_REUSEADDR lets a second socket bind a port already in use, so the
+    server binds exclusively there instead.
+    """
+
+    allow_reuse_address: bool = sys.platform != "win32"
+
+    def server_bind(self) -> None:  # pyright: ignore[reportImplicitOverride]
+        """Bind, exclusively on Windows."""
+        if sys.platform == "win32":
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
 def make_server(root: Path, port: int = 0) -> tuple[ThreadingHTTPServer, str]:
     """Build the viewer server bound to 127.0.0.1.
 
@@ -244,7 +261,7 @@ def make_server(root: Path, port: int = 0) -> tuple[ThreadingHTTPServer, str]:
         {"root": root, "token": token, "nonce": secrets.token_urlsafe(16)},
     )
     try:
-        return ThreadingHTTPServer((HOST, port), handler), token
+        return _Server((HOST, port), handler), token
     except OSError as error:
         msg = f"cannot listen on {HOST}:{port} (in use? pick another --port): {error}"
         raise JournalError(msg) from None
