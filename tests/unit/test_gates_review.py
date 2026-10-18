@@ -41,11 +41,11 @@ def _edit(root: Path, relative: str) -> str | None:
     return decide(root, ToolCall("edit", (str(root / relative),)))
 
 
-def test_antigravity_gate_ships_disabled():  # C1
+def test_antigravity_gate_is_enabled():  # verified on agy 1.4.2
     hooks = cast(
         "dict[str, dict[str, object]]", json.loads((REPO / "hooks.json").read_text())
     )
-    assert hooks["grillspec-gate"]["enabled"] is False
+    assert hooks["grillspec-gate"].get("enabled", True) is True
 
 
 def test_approval_ends_the_pause(spec: Path):  # I1

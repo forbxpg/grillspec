@@ -37,7 +37,7 @@ Then, in your project, ask the agent to "set up grillspec".
 | Claude Code | supported | session start and phase gate pass smoke runs |
 | Cursor | supported | session start and phase gate pass smoke runs (`cursor-agent`) |
 | Codex | unverified | hooks need `/hooks` approval after each plugin update |
-| Antigravity | unverified | the phase gate ships disabled until it is smoke-tested |
+| Antigravity | supported | session start and phase gate pass smoke runs (`agy` CLI); the IDE is unverified |
 | GigaCode | experimental | no hooks; the skills are the gate |
 
 ## Data and privacy
