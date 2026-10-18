@@ -7,6 +7,10 @@ release may break things and says so here.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-18
+
+First public release.
+
 ### Added
 
 - `grillspec` CLI (`status`, `use`, `init`, `detect`, `install`, `uninstall`, `hook`,
@@ -32,3 +36,6 @@ release may break things and says so here.
   planned; `grillspec gate pause|resume`.
 - `grillspec tokens` and a generated cost table in the docs; measured session
   overhead.
+
+[Unreleased]: https://github.com/forbxpg/grillspec/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/forbxpg/grillspec/releases/tag/v0.1.0

@@ -61,8 +61,29 @@ Keep skill frontmatter to `name` and `description`, English only. The router
 
 ## Releasing (maintainer)
 
-1. `uv run python scripts/bump_version.py X.Y.Z`, move `[Unreleased]` in `CHANGELOG.md` under
-   the new version, commit `chore: release X.Y.Z`.
-2. Run `claude plugin validate --strict .` locally.
-3. Tag `vX.Y.Z` and push the tag; the release workflow builds, publishes to PyPI and
-   creates the GitHub release.
+Before the tag, on the release branch:
+
+1. `uv run python scripts/bump_version.py X.Y.Z`; move `[Unreleased]` in `CHANGELOG.md`
+   under `## [X.Y.Z] - YYYY-MM-DD` and update the compare links at the bottom.
+2. CI is green, and locally `claude plugin validate --strict .` passes.
+3. Pressure evals: `claude plugin eval . --eval-dir tests/evals --scaffold --tag pressure
+   --ablation none --no-publish --trust-plugin --allow-tools Edit Write`. Every case
+   averages at least 0.8; record the scores in the release PR description before
+   it is merged.
+4. Smoke runs: `tests/smoke/smoke.sh` and `tests/smoke/smoke_gates.sh` for Claude Code
+   and Cursor must PASS; every other harness gets a dated row in
+   `tests/smoke/README.md` saying why it was not run.
+5. `uv run python scripts/check_tokens.py` passes; after a harness or model update, run
+   `tests/benchmark/overhead.sh claude` and add a row to `docs/*/tokens.md`.
+6. Merge the release PR as `chore: release X.Y.Z`.
+
+Publishing (the owner, once per step):
+
+1. First release only: on pypi.org add a pending trusted publisher for `grillspec`
+   (repository `forbxpg/grillspec`, workflow `release.yml`, environment `pypi`), and
+   create the `pypi` environment in the repository settings.
+2. Tag `vX.Y.Z` on main and push it; the release workflow checks the version and the
+   changelog, builds, publishes to PyPI and creates the GitHub release.
+3. Check the PyPI page, `uvx grillspec version`, and the GitHub release notes.
+4. Catalogues: the repository itself is the Claude Code and Codex marketplace; submit
+   to the Anthropic plugin directory and other catalogues with the README summary.

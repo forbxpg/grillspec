@@ -2,7 +2,7 @@
 
 **Spec-driven agentic development: the agent asks before it guesses.**
 
-`pre-alpha` · [Русская версия](README.ru.md)
+`0.1.0` · [Русская версия](README.ru.md)
 
 grillspec is a library of agent skills and hooks. Before an agent builds something
 that involves a decision, it grills you — one decision at a time, each with a
@@ -30,6 +30,16 @@ per change); you choose per project.
 Any harness without its plugin system: `uvx grillspec install --harness <name> --copy`.
 Then, in your project, ask the agent to "set up grillspec".
 
+## Support
+
+| Harness | Status | Verified |
+|---|---|---|
+| Claude Code | supported | session start and phase gate pass smoke runs |
+| Cursor | supported | session start and phase gate pass smoke runs (`cursor-agent`) |
+| Codex | unverified | hooks need `/hooks` approval after each plugin update |
+| Antigravity | unverified | the phase gate ships disabled until it is smoke-tested |
+| GigaCode | experimental | no hooks; the skills are the gate |
+
 ## Documentation
 
 - English: [docs/en](docs/en/README.md) — why each mechanism exists and how it works
@@ -40,9 +50,9 @@ Then, in your project, ask the agent to "set up grillspec".
 
 ## Status
 
-Pre-alpha: grilling, council, specs, memory, plans, execution, archiving and phase
-gates are in place; release hardening (pressure tests, smoke runs on every harness)
-comes next. See [CHANGELOG.md](CHANGELOG.md).
+0.1.0, the first public release: grilling, council, specs, memory, plans, execution,
+archiving and phase gates. 0.x versions may still change formats; the changelog says
+when. See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

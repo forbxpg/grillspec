@@ -22,7 +22,7 @@ fi
 case "$HARNESS" in
   claude) REPLY="$(claude -p --plugin-dir "$REPO" "$PROMPT" 2>&1 || true)" ;;
   codex) REPLY="$(codex exec --skip-git-repo-check "$PROMPT" </dev/null 2>&1 || true)" ;;
-  cursor) REPLY="$(cursor-agent -p "$PROMPT" 2>&1 || true)" ;;
+  cursor) REPLY="$(cursor-agent -p --trust --plugin-dir "$REPO" "$PROMPT" </dev/null 2>&1 || true)" ;;
   antigravity) REPLY="$(agy -p "$PROMPT" 2>&1 || true)" ;;
   gigacode)
     sh "$REPO/scripts/grillspec" install --harness gigacode >/dev/null
