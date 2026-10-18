@@ -8,6 +8,7 @@ from ._detect import (
     available_clis,
     brownfield_signals,
     cli_report,
+    council_defaults,
     recommend_backend,
 )
 
@@ -17,5 +18,6 @@ __all__ = (
     "available_clis",
     "brownfield_signals",
     "cli_report",
+    "council_defaults",
     "recommend_backend",
 )

@@ -24,6 +24,13 @@ the log's metadata counts council runs (`council_calls=`).
 Roles run on the same model as the agent, so their agreement is a weak signal; the
 agent says so. External members bring other models' blind spots instead.
 
+With `council.members` empty, the council is the three roles plus every CLI that
+`grillspec detect --json` finds installed and not logged out, except experimental ones.
+When that finds no CLI, as on a machine whose only agent CLI is GigaCode, the
+experimental CLIs that are installed and not logged out join instead, so the council
+still has an external member. `detect --json` lists the result under `council`, and
+`grillspec council ask` with no `--members` asks its `cli:` members.
+
 When the setup question offers a council, it names the members and the cost.
 
 ## When it runs
@@ -86,14 +93,29 @@ logged in. The check never sends a prompt.
 | `cursor-agent` | `cursor-agent -p --trust --mode ask --output-format json` | `cursor-agent status --format json` |
 | `gemini` | `gemini --approval-mode plan -o json -p "…"` | none: an API key in `GEMINI_API_KEY` or a saved login counts; otherwise unknown |
 | `agy` | `agy --sandbox -p "…"` | none: unknown |
-| `gigacode` (experimental) | `gigacode --approval-mode plan -o json "…"` | `gigacode auth status` |
+| `gigacode` (experimental) | `gigacode -e none --no-chat-recording --approval-mode plan -o json "…"` | `gigacode auth status` |
 
 A CLI that is logged out is skipped and named in the question. An unknown login
 state is tried; a failure shows up as an error.
 
 ### GigaCode
 
-GigaCode support is experimental: it is never offered in the setup question and runs
-only when you list `cli:gigacode` in `council.members`. The GigaCode CLI needs
+GigaCode support is experimental: it joins the default council only when no other
+agent CLI is installed and logged in, and otherwise runs only when you list
+`cli:gigacode` in `council.members`. It is checked against the GigaCode 0.13.1 bundle,
+not yet run live.
+
+- `-e none` starts the member without extensions, so it does not load grillspec's own
+  router and hooks; `--no-chat-recording` keeps the call out of your session history.
+- `gigacode auth status` always exits 0: a `✓` line counts as logged in, a `⚠` line
+  (in any language) as logged out.
+- Inside GigaCode, role members run through its `agent` tool as the built-in
+  `general-purpose` subagent.
+- When the agent itself runs in GigaCode, a `cli:gigacode` member is the same model
+  in a fresh context, and its agreement is a weak signal like a role's. For a second
+  model, name one: `members = ["role:devil", "role:risk", "cli:gigacode@<model>"]`,
+  with a model your licence offers (see `/model` in GigaCode).
+
+The GigaCode CLI needs
 Node.js 22 or 24 LTS. On Node 26 it fails with `UND_ERR_INVALID_ARG invalid onError
 method` whenever its corporate CA bundle is present.

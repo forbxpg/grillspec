@@ -137,7 +137,8 @@ Council 3/4: A (claude, codex, simplicity) · dissent devil→B: retries hide ou
 ```
 
 Council советует; решаете вы. Согласие участников на одной модели честно помечается как
-слабый сигнал.
+слабый сигнал. На машине только GigaCode? Тогда он сам входит в council — без
+интерфейса и без расширений.
 → [Как работает council](docs/ru/how-it-works/council.md)
 
 ### 📜 Спеки — `grillspec-specs`

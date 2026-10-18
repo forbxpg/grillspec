@@ -102,6 +102,9 @@ def resolve_cli(name: str) -> str | None:
 
 
 _GIGACODE_LOGGED_OUT = "No authentication method configured"
+# gigacode translates its probe text; these marks survive every locale.
+_GIGACODE_OK = "\u2713"
+_GIGACODE_WARN = "\u26a0"
 
 
 def _json_flag(text: str, key: str) -> bool | None:
@@ -143,15 +146,20 @@ def _gemini_logged_in() -> bool | None:
 def _gigacode_state(text: str) -> bool | None:
     """Read gigacode's probe, which exits 0 whether or not it is logged in.
 
+    GigaCode 0.13.1 prints "✓ Authentication Method: …" for a configured login
+    and a "⚠️" line when there is none or it is incomplete.
+
     Args:
         text: str - Probe stdout and stderr.
 
     Returns:
-        bool | None - False when it says no login is configured; None otherwise,
-            since the logged-in wording has not been verified.
+        bool | None - False on a warning or the logged-out sentence; True on a
+            checked method; None for anything else.
 
     """
-    return False if _GIGACODE_LOGGED_OUT in text else None
+    if _GIGACODE_WARN in text or _GIGACODE_LOGGED_OUT in text:
+        return False
+    return True if _GIGACODE_OK in text else None
 
 
 # Vendor name -> reader of (exit code, stdout, stdout + stderr).
@@ -209,7 +217,17 @@ _HEAD: dict[str, tuple[str, ...]] = {
     "cursor-agent": ("-p", "--trust", "--mode", "ask", "--output-format", "json"),
     "gemini": ("--approval-mode", "plan", "-o", "json"),
     "agy": ("--sandbox",),
-    "gigacode": ("--approval-mode", "plan", "-o", "json"),
+    # -e none: no extensions, so a member never loads grillspec's own router and
+    # hooks; -e takes a list, so an option must follow it, never the prompt.
+    "gigacode": (
+        "-e",
+        "none",
+        "--no-chat-recording",
+        "--approval-mode",
+        "plan",
+        "-o",
+        "json",
+    ),
 }
 _TAIL: dict[str, tuple[str, ...]] = {
     "codex": ("-",),

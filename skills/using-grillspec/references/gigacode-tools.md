@@ -3,7 +3,7 @@
 | Action | GigaCode CLI |
 |---|---|
 | Ask the user (multiple choice) | `ask_user_question`; if it fails, numbered options in plain text. |
-| Dispatch a subagent | `agent`. |
+| Dispatch a subagent | `agent` with `subagent_type: "general-purpose"` (the built-in type). |
 | Track tasks | `todo_write`; otherwise a checklist in the plan file. |
 | Run a command | `run_shell_command`. |
 | Run a command in the background | `run_shell_command` with `is_background: true`. |
