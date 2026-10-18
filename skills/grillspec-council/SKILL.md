@@ -36,8 +36,8 @@ ask it: the members need time.
 
 ## 3. Payload
 
-Write `.grillspec/council/<Qn>.json`, and add `.grillspec/council/` to `.gitignore`
-once if it is missing:
+Write `.grillspec/council/<Qn>.json`, and once, if it is missing, create
+`.grillspec/council/.gitignore` containing `*` so payloads stay out of git:
 
 ```json
 {"version": 1, "question": "...", "options": ["...", "..."], "settled": ["D1 ...", "D2 ..."], "context": "..."}

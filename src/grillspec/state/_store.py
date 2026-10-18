@@ -114,3 +114,67 @@ def clear_active(root: Path) -> None:
     path = root / STATE
     if path.is_file():
         write_atomic(path, json.dumps({"version": 1, "active": None}) + "\n")
+
+
+def _read_state(root: Path) -> dict[str, object] | None:
+    """Read ``state.json`` as an object, or None when it is missing or broken.
+
+    Args:
+        root: Path - Project root.
+
+    Returns:
+        dict[str, object] | None - The parsed state.
+
+    """
+    try:
+        data = cast("object", json.loads((root / STATE).read_text(encoding="utf-8")))
+    except (ValueError, OSError):
+        return None
+    return cast("dict[str, object]", data) if isinstance(data, dict) else None
+
+
+def pause_gates(root: Path, change_id: str, phase: str) -> None:
+    """Pause the phase gate for a change while it stays in one phase.
+
+    Args:
+        root: Path - Project root.
+        change_id: str - The active change.
+        phase: str - Its current phase; the pause ends when it changes.
+
+    """
+    state: dict[str, object] = {"version": 1, "active": change_id}
+    state["gates_paused"] = {"change": change_id, "phase": phase}
+    write_atomic(root / STATE, json.dumps(state) + "\n")
+
+
+def resume_gates(root: Path) -> None:
+    """End a gate pause, keeping the active change.
+
+    Args:
+        root: Path - Project root.
+
+    """
+    state = _read_state(root)
+    if state is not None and state.pop("gates_paused", None) is not None:
+        write_atomic(root / STATE, json.dumps(state) + "\n")
+
+
+def gates_pause(root: Path) -> tuple[str, str] | None:
+    """Return the recorded gate pause.
+
+    Args:
+        root: Path - Project root.
+
+    Returns:
+        tuple[str, str] | None - (change id, phase), or None when there is none.
+
+    """
+    state = _read_state(root)
+    pause = state.get("gates_paused") if state is not None else None
+    if not isinstance(pause, dict):
+        return None
+    record = cast("dict[str, object]", pause)
+    change, phase = record.get("change"), record.get("phase")
+    if isinstance(change, str) and isinstance(phase, str):
+        return change, phase
+    return None

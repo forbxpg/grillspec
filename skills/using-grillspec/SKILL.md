@@ -90,6 +90,13 @@ If Superpowers or another workflow router is also active, tell the user once to
 keep only one of them enabled. Until they do, follow grillspec for planning and
 for its phase gates.
 
+## Phase gates
+
+While the active change is grilled, specced or planned, a hook blocks edits outside
+its artifacts. A blocked edit means: finish the phase first. Never work around a gate
+with another tool or a shell trick; if the user wants to skip it, they run
+`grillspec gate pause` in their own terminal.
+
 ## Red flags
 
 | Thought | Reality |

@@ -5,6 +5,13 @@
       {
         "command": "./hooks/run-hook.cmd session-start cursor"
       }
+    ],
+    "preToolUse": [
+      {
+        "matcher": "Write|Delete|Shell",
+        "command": "./hooks/run-hook.cmd pre-tool cursor",
+        "timeout": 30
+      }
     ]
   }
 }
