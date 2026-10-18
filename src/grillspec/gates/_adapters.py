@@ -24,12 +24,14 @@ _EDITS = {
         "replace_file_content",
         "multi_replace_file_content",
     }),
+    Harness.GIGACODE: frozenset({"write_file", "edit"}),
 }
 _SHELLS = {
     Harness.CLAUDE: frozenset({"Bash", "PowerShell"}),
     Harness.CURSOR: frozenset({"Shell"}),
     Harness.CODEX: frozenset({"Bash", "exec_command"}),
     Harness.ANTIGRAVITY: frozenset({"run_command"}),
+    Harness.GIGACODE: frozenset({"run_shell_command"}),
 }
 NO_OPINION = {
     Harness.CLAUDE: "",
@@ -37,6 +39,7 @@ NO_OPINION = {
     Harness.CURSOR: "{}",
     # agy 1.4.2: an empty reply is no opinion; IDE docs define "allow" as approval.
     Harness.ANTIGRAVITY: "",
+    Harness.GIGACODE: "",
 }
 
 
@@ -94,7 +97,8 @@ def _call(
 
     """
     if tool in _SHELLS[harness]:
-        named = (args.get(key) for key in ("cwd", "working_directory", "workdir"))
+        keys = ("cwd", "working_directory", "workdir", "directory")
+        named = (args.get(key) for key in keys)
         cwd = next((text for value in named if (text := _text(value))), cwd)
         command = _text(
             args.get("CommandLine" if harness is Harness.ANTIGRAVITY else "command")

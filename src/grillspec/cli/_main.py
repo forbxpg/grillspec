@@ -176,7 +176,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = hook.add_argument(
         "--harness",
         required=True,
-        choices=[str(h) for h in Harness if h is not Harness.GIGACODE],
+        choices=[str(h) for h in Harness],
     )
     init = commands.add_parser("init", help="set grillspec up in this project")
     _ = init.add_argument("--backend", required=True, choices=[str(b) for b in Backend])
@@ -810,6 +810,10 @@ def _hook(event: str, harness: str) -> int:
         if answer:
             _ = sys.stdout.write(answer + "\n")
         return 0
+    if Harness(harness) is Harness.GIGACODE:
+        return (
+            0  # GigaCode 0.13.1 discards session-start output; its context file loads
+        )
     payload = render_session_start(
         Harness(harness), session_context(project_root(Path.cwd()))
     )

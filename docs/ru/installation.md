@@ -31,10 +31,56 @@ Windows) берут первого кандидата версии 3.11 или �
 | Codex | `codex plugin marketplace add forbxpg/grillspec`, затем выбрать grillspec в `/plugins`; доверить его хукам в `/hooks` | `/plugins` |
 | Cursor | `/add-plugin forbxpg/grillspec` | менеджер плагинов Cursor |
 | Antigravity | `agy plugin install https://github.com/forbxpg/grillspec` | повторить установку |
-| GigaCode | `uvx grillspec install --harness gigacode` | повторить установку |
+| GigaCode | `gigacode extensions link /path/to/grillspec` (см. [GigaCode](#gigacode)) | заменить содержимое папки |
 
 Codex запускает хуки плагина только после того, как вы доверите им в `/hooks`. До этого
 роутер всё равно подгружается по описанию скилла — пропадает только строка статуса.
+
+## Без npx и uv
+
+Ни одна установка ниже не требует npx, npm или uv. Чтобы получить grillspec на машине, где
+есть только Python и git (или нет и их), выберите любой способ и оставьте папку на месте:
+
+```bash
+git clone https://github.com/forbxpg/grillspec
+# или: скачайте source zip релиза с https://github.com/forbxpg/grillspec/releases и распакуйте
+# или из зеркала PyPI (исходный дистрибутив содержит весь плагин):
+python -m pip download grillspec --no-deps --no-binary :all: && tar -xzf grillspec-*.tar.gz
+```
+
+CLI запускается из этой папки её лаунчером, который сам находит Python 3.11+:
+`sh scripts/grillspec <command>` на Linux и macOS, `scripts\grillspec.cmd <command>` на
+Windows. Или поставьте его командой: `python -m pip install grillspec`, затем
+`grillspec <command>`.
+
+## GigaCode
+
+grillspec — нативное расширение GigaCode (`gigacode-extension.json`). GigaCode ставит
+расширения только из локальной папки, и для этого нужен лишь он сам:
+
+```bash
+gigacode extensions link /path/to/grillspec     # ответьте Y
+```
+
+- После этого каждая сессия загружает роутер и строку о том, как запускать CLI grillspec
+  из этой папки; 18 скиллов появляются в `/skills`.
+- Используйте `link`, а не `install`: `install` видит в папке `.claude-plugin/`, ставит её
+  как плагин Claude и теряет и роутер, и ворота.
+- Воротам нужны хуки GigaCode, а они по умолчанию выключены. Включите их в
+  `~/.gigacode/settings.json`:
+
+  ```json
+  { "hooksConfig": { "enabled": true } }
+  ```
+
+  (или запускайте GigaCode с `--experimental-hooks`). Без хуков воротами служат только
+  скиллы.
+- Обновление: замените содержимое папки (`git pull` или распакуйте новый релиз на её
+  место); корпоративный режим GigaCode отключает `extensions update`. Удаление:
+  `gigacode extensions uninstall grillspec`.
+
+Проверено на сборке GigaCode 0.13.1: `link` загружает оба контекстных файла и все 18
+скиллов. Живая сессия, для которой нужна лицензия GigaCode, ещё не запускалась.
 
 ## Без системы плагинов
 
@@ -42,19 +88,21 @@ Codex запускает хуки плагина только после тог�
 созданный файл:
 
 ```bash
-uvx grillspec install --harness gigacode                 # проект: .gigacode/skills
-uvx grillspec install --harness codex --copy --scope user  # пользователь: ~/.agents/skills
-uvx grillspec install --harness gigacode --dry-run       # показать записи, ничего не менять
+grillspec install --harness gigacode                 # проект: .gigacode/skills
+grillspec install --harness codex --copy --scope user  # пользователь: ~/.agents/skills
+grillspec install --harness gigacode --dry-run       # показать записи, ничего не менять
 ```
 
+(`grillspec` здесь — любой из способов выше: лаунчер, `pip install` или `uvx`.)
 Для агентов с плагинами `install` печатает нативную команду, если не передан `--copy`.
 Для GigaCode он ещё добавляет одну строку импорта в `GIGACODE.md`, чтобы роутер
-загружался в каждой сессии.
+загружался в каждой сессии; лучше ставьте расширение: проектные скиллы GigaCode читает,
+только если запущен в корне проекта.
 
 ## Удаление
 
 ```bash
-uvx grillspec uninstall --harness gigacode
+grillspec uninstall --harness gigacode
 ```
 
 `uninstall` удаляет ровно те файлы и строку импорта, которые `install` записал в

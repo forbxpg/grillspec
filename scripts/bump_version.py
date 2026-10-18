@@ -17,6 +17,7 @@ VERSION_FILES = (
     ".cursor-plugin/plugin.json",
     ".codex-plugin/plugin.json",
     ".antigravity-plugin/plugin.json",
+    "gigacode-extension.json",
 )
 _PYPROJECT = re.compile(r'^(version = ")([^"]+)(")', re.MULTILINE)
 _PACKAGE = re.compile(r'^(__version__ = ")([^"]+)(")', re.MULTILINE)

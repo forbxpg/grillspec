@@ -33,7 +33,7 @@ CI fails when it falls behind the skills.
 | `grillspec-tdd` | when the skill is used | 2,426 (+up to 1,831 in references) |
 | `grillspec-verification` | when the skill is used | 762 |
 | `grillspec-worktrees` | when the skill is used | 1,487 |
-| `using-grillspec` | every session (the router above) | 1,229 (+up to 773 in references) |
+| `using-grillspec` | every session (the router above) | 1,229 (+up to 812 in references) |
 <!-- grillspec:tokens:end -->
 
 A skill's references are the other files in its folder; the agent reads them only

@@ -72,7 +72,7 @@ grillspec gate pause
 | Codex | `PreToolUse` на `apply_patch`, `Bash` и `exec_command` | Одобрите хуки плагина через `/hooks` после установки и снова после каждого обновления плагина; до этого они не работают. |
 | Cursor | `preToolUse` на `Write`, `Delete`, `Shell` | Хуки работают в доверенных папках. |
 | Antigravity | `PreToolUse` на `write_to_file`, `replace_file_content`, `multi_replace_file_content`, `run_command` | Проверено с CLI `agy` 1.4.2. «Нет мнения» — пустой ответ, а не `allow`: некоторые версии Antigravity считают `allow` одобрением вызова за вас. IDE smoke-тестом пока не проверена. |
-| GigaCode | нет | Хуки GigaCode экспериментальные и по умолчанию выключены; там воротами служат скиллы. |
+| GigaCode | `PreToolUse` на `write_file`, `edit`, `run_shell_command` (из манифеста расширения) | Хуки GigaCode по умолчанию выключены: задайте `"hooksConfig": {"enabled": true}` в `~/.gigacode/settings.json`. Сверено со сборкой GigaCode 0.13.1; в живой сессии ещё не запускалось. |
 
 Каждый хук при сбое пропускает вызов: если нет Python или что-то пошло не так, инструмент
 выполняется.
