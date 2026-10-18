@@ -71,6 +71,6 @@ early. The gate blocks the agent's own `grillspec gate pause`, however it is quo
 | Codex | `PreToolUse` on `apply_patch`, `Bash` and `exec_command` | Approve the plugin's hooks with `/hooks` after installing, and again after every plugin update; until then they do not run. |
 | Cursor | `preToolUse` on `Write`, `Delete`, `Shell` | Hooks run in trusted workspaces. |
 | Antigravity | `PreToolUse` on `write_to_file`, `replace_file_content`, `multi_replace_file_content`, `run_command` | Verified with the `agy` CLI 1.4.2. "No opinion" is an empty reply, never `allow`, which some Antigravity versions treat as approving the call for you. The IDE is not smoke-tested yet. |
-| GigaCode | none | GigaCode's hooks are experimental and off by default; the skills are the gate there. |
+| GigaCode | `PreToolUse` on `write_file`, `edit`, `run_shell_command` (from the extension manifest) | GigaCode's hooks are off by default: set `"hooksConfig": {"enabled": true}` in `~/.gigacode/settings.json`. Read from the GigaCode 0.13.1 bundle; not yet run in a live session. |
 
 Every hook fails open: if Python is missing or anything goes wrong, the tool call runs.

@@ -216,9 +216,11 @@ phase. It is a guardrail against drift, not a sandbox.
 | Cursor | `/add-plugin forbxpg/grillspec` |
 | Codex | `codex plugin marketplace add forbxpg/grillspec`, then `/plugins` |
 | Antigravity | `agy plugin install https://github.com/forbxpg/grillspec` |
-| GigaCode | `uvx grillspec install --harness gigacode` |
+| GigaCode | `gigacode extensions link /path/to/grillspec` — a local folder; no npx or network needed |
 
-Any harness without its plugin system: `uvx grillspec install --harness <name> --copy`.
+Any harness without its plugin system: `grillspec install --harness <name> --copy`. No
+npx or uv on the machine? Clone the repo, unpack a release, or `pip download` it from a
+PyPI mirror, and run `sh scripts/grillspec` from the folder — see [Installation](docs/en/installation.md#without-npx-or-uv).
 Then, in your project, ask the agent to **"set up grillspec"** — it detects your
 project, recommends a backend and shows every file it will touch before it writes.
 
@@ -233,7 +235,7 @@ configure), git.
 | Cursor | ✅ supported | session start and phase gate (`cursor-agent`) |
 | Antigravity | ✅ supported | session start and phase gate (`agy` CLI; the IDE is not yet tested) |
 | Codex | ⚠️ unverified | its plugin hooks need `/hooks` approval after each update |
-| GigaCode | 🧪 experimental | no hooks yet; the skills are the gate |
+| GigaCode | 🧪 experimental | a native extension with phase gates, checked against the GigaCode 0.13.1 bundle; not yet run live (needs a licence); hooks must be enabled |
 
 ## Command line
 

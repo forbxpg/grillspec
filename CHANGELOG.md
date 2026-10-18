@@ -7,6 +7,15 @@ release may break things and says so here.
 
 ## [Unreleased]
 
+### Added
+
+- GigaCode: grillspec is a native GigaCode extension (`gigacode-extension.json`), linked
+  from a local folder with `gigacode extensions link` — no npx, uv or network. It loads
+  the router and the CLI line every session and brings phase gates for `write_file`,
+  `edit` and `run_shell_command` once GigaCode hooks are enabled.
+- Installation without npx or uv: from a clone, a release zip or a PyPI mirror's source
+  distribution, with the bundled launcher.
+
 ## [0.1.1] - 2026-10-18
 
 ### Added

@@ -65,4 +65,4 @@ Superpowers и похожие плагины вставляют свой роу�
 | Codex | хук `SessionStart` (`hooks/hooks-codex.json`), после доверия в `/hooks` |
 | Cursor | хук `sessionStart` (`hooks/hooks-cursor.json`) |
 | Antigravity | хук `SessionStart` (`hooks.json` в корне плагина) |
-| GigaCode | строка импорта в `GIGACODE.md`, которая загружает роутер; без строки статуса |
+| GigaCode | контекстные файлы расширения: роутер и строка `grillspec CLI:` (или, после копирования скиллов, строка импорта в `GIGACODE.md`); без строки статуса |

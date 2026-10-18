@@ -217,9 +217,11 @@ grillspec gate: add-limits is in the spec phase, so only its spec artifacts may 
 | Cursor | `/add-plugin forbxpg/grillspec` |
 | Codex | `codex plugin marketplace add forbxpg/grillspec`, затем `/plugins` |
 | Antigravity | `agy plugin install https://github.com/forbxpg/grillspec` |
-| GigaCode | `uvx grillspec install --harness gigacode` |
+| GigaCode | `gigacode extensions link /path/to/grillspec` — локальная папка; ни npx, ни сеть не нужны |
 
-Харнесс без системы плагинов: `uvx grillspec install --harness <name> --copy`. Затем
+Харнесс без системы плагинов: `grillspec install --harness <name> --copy`. На машине нет
+npx и uv? Клонируйте репозиторий, распакуйте релиз или скачайте его `pip download` из
+зеркала PyPI и запускайте `sh scripts/grillspec` из папки — см. [Установку](docs/ru/installation.md#без-npx-и-uv). Затем
 в проекте попросите агента **«set up grillspec»** — он изучит проект, порекомендует
 бэкенд и покажет каждый файл, который тронет, прежде чем что-то записать.
 
@@ -233,7 +235,7 @@ grillspec gate: add-limits is in the spec phase, so only its spec artifacts may 
 | Cursor | ✅ поддерживается | бутстрап и ворота (`cursor-agent`) |
 | Antigravity | ✅ поддерживается | бутстрап и ворота (CLI `agy`; IDE пока не проверена) |
 | Codex | ⚠️ не проверен | хукам плагина нужно одобрение через `/hooks` после каждого обновления |
-| GigaCode | 🧪 экспериментальный | хуков пока нет; воротами служат скиллы |
+| GigaCode | 🧪 экспериментальный | нативное расширение с воротами, сверено со сборкой GigaCode 0.13.1; вживую ещё не запускалось (нужна лицензия); хуки нужно включить |
 
 ## Командная строка
 

@@ -64,4 +64,4 @@ does either:
 | Codex | `SessionStart` hook (`hooks/hooks-codex.json`), after you trust it in `/hooks` |
 | Cursor | `sessionStart` hook (`hooks/hooks-cursor.json`) |
 | Antigravity | `SessionStart` hook (`hooks.json` at the plugin root) |
-| GigaCode | an import line in `GIGACODE.md` that loads the router; no status line |
+| GigaCode | the extension's context files: the router and the `grillspec CLI:` line (or, after a skill copy, an import line in `GIGACODE.md`); no status line |

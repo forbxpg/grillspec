@@ -1,0 +1,22 @@
+{
+  "name": "grillspec",
+  "version": "0.1.1",
+  "contextFileName": [
+    "skills/using-grillspec/SKILL.md",
+    "gigacode-context.md"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(write_file|edit|run_shell_command)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${extensionPath}${/}hooks${/}run-hook.cmd\" pre-tool gigacode",
+            "timeout": 30000
+          }
+        ]
+      }
+    ]
+  }
+}
