@@ -19,7 +19,7 @@ _RECENT_LIMIT = 20
 _FOOTER = "More: grillspec recall <words>; pin a note with grillspec recall --pin <id>."
 _EMPTY = (
     "Nothing recorded yet. Before this session ends, write a handoff note: "
-    "grillspec note handoff -- <done / next / open>."
+    'grillspec note handoff -- "done: ...; next: ...; open: ...".'
 )
 
 
@@ -27,10 +27,11 @@ def line(entry: Entry) -> str:
     """Render one entry as a brief or recall line.
 
     Returns:
-        str - ``- [#<id> <kind> <date>] <text>``.
+        str - ``- [#<id> <kind> <date>] <text>``; a resolved note says so.
 
     """
-    return f"- [#{entry.id} {entry.kind} {entry.ts[:10]}] {entry.text}"
+    kind = f"{entry.kind} resolved" if entry.resolved else entry.kind
+    return f"- [#{entry.id} {kind} {entry.ts[:10]}] {entry.text}"
 
 
 def record_event(root: Path, change: str | None, text: str) -> str | None:
@@ -49,7 +50,7 @@ def record_event(root: Path, change: str | None, text: str) -> str | None:
         return None
     body = f"{change}: {text}" if change else text
     try:
-        _ = Journal(root).add("event", body, change=change)
+        _ = Journal(root).add("event", body, change=change, trusted=True)
     except (JournalError, OSError) as error:
         return str(error)
     return None
@@ -58,7 +59,9 @@ def record_event(root: Path, change: str | None, text: str) -> str | None:
 def _sections(journal: Journal) -> list[tuple[str, list[Entry]]]:
     recent = journal.recent(500)
     handoffs = [e for e in recent if e.kind == "handoff"][:1]
-    open_notes = [e for e in recent if e.kind in {"blocker", "todo"}][:_OPEN_LIMIT]
+    open_notes = [
+        e for e in recent if e.kind in {"blocker", "todo"} and not e.resolved
+    ][:_OPEN_LIMIT]
     return [
         ("Pinned:", journal.pinned()),
         ("Last handoff:", handoffs),

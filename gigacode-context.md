@@ -7,6 +7,7 @@ GigaCode started in (where your shell commands run), is in the `Context from:` l
 above. On Windows run `"<this folder>\scripts\grillspec.cmd" <command>` instead. Run
 `<that command> status` for the phase of this working tree before any grillspec step,
 and `<that command> recall --brief` once to see where the last session stopped.
+Before the session ends, write `<that command> note handoff -- "done: …; next: …"`.
 
 Phase gates need GigaCode hooks, which are off unless `"hooksConfig": {"enabled": true}`
 is in `~/.gigacode/settings.json`. Without them the skills are the only gate: never edit

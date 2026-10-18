@@ -68,10 +68,10 @@ flowchart LR
   question, never smoothed over.
 - **Five harnesses, one workflow.** The same skills, the same CLI and the same files
   in Claude Code, Cursor, Codex, Antigravity and GigaCode.
-- **Measured, not claimed.** Always-on cost is **about 2,200 tokens per session** plus
-  a resume brief of at most 1,500 (0.1 measured at about 2,100 in Claude Code),
-  measured in Claude Code; everything else loads only when a skill is used. A table
-  generated in CI shows every skill's cost.
+- **Measured, not claimed.** Always-on cost was **measured at about 2,100 tokens per
+  session** in Claude Code for 0.1; 0.2's memory instructions add an estimated 110,
+  plus a resume brief of at most 1,500. Everything else loads only when a skill is
+  used. A table generated in CI shows every skill's cost.
 - **Self-contained.** No runtime dependency on any other plugin. The CLI is
   standard-library Python, found automatically by the hooks on every OS.
 
@@ -275,7 +275,7 @@ The skills drive the CLI for you; you rarely type these yourself.
 | `grillspec archive [--dry-run]` | merge a done change into the living specs |
 | `grillspec gate pause\|resume` | pause the phase gate (yours only, from a terminal) |
 | `grillspec note <kind> -- <text>` | a session-memory note: `handoff`, `discovery`, `blocker`, `todo` |
-| `grillspec recall [words] [--brief\|--pin\|--forget]` | search session memory, show the brief, pin or delete |
+| `grillspec recall [words] [--brief\|--pin\|--resolve\|--forget]` | search session memory, show the brief, pin, resolve or delete |
 | `grillspec ui` | the local session-memory viewer in your browser |
 | `grillspec tokens [--project]` | estimate what grillspec costs in context |
 | `grillspec install\|uninstall --harness <h>` | copy the skills into a harness, and remove exactly that |

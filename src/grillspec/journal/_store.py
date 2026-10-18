@@ -7,37 +7,51 @@ import random
 import re
 import sqlite3
 import time
+import unicodedata
 from contextlib import closing
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
 from ._redact import redact
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
 NOTE_KINDS = ("handoff", "discovery", "blocker", "todo")
 KINDS = ("event", *NOTE_KINDS)
 _WORD = re.compile(r"\w+", re.UNICODE)
+_MAX_ID = 2**63 - 1
 _SCHEMA = (
     """CREATE TABLE IF NOT EXISTS entries (
         id INTEGER PRIMARY KEY, ts TEXT NOT NULL, kind TEXT NOT NULL,
-        change TEXT, text TEXT NOT NULL, pinned INTEGER NOT NULL DEFAULT 0)""",
+        change TEXT, text TEXT NOT NULL, pinned INTEGER NOT NULL DEFAULT 0,
+        resolved INTEGER NOT NULL DEFAULT 0)""",
 )
-_FTS = (
-    """CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
-        text, content='entries', content_rowid='id',
-        tokenize='unicode61 remove_diacritics 2')""",
-    """CREATE TRIGGER IF NOT EXISTS entries_ai AFTER INSERT ON entries BEGIN
-        INSERT INTO entries_fts(rowid, text) VALUES (new.id, new.text); END""",
-    """CREATE TRIGGER IF NOT EXISTS entries_ad AFTER DELETE ON entries BEGIN
-        INSERT INTO entries_fts(entries_fts, rowid, text)
-        VALUES ('delete', old.id, old.text); END""",
+# A regular FTS5 table holding folded text, kept in step from Python: SQLite's
+# tokenizer folds only Latin diacritics, and search must treat yo (U+0451) as ie.
+_FTS_TABLE = "CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(text)"
+_DROP_TRIGGERS = (
+    "DROP TRIGGER IF EXISTS entries_ai",
+    "DROP TRIGGER IF EXISTS entries_ad",
+)
+_HAS_FTS = "SELECT count(*) FROM sqlite_master WHERE name = 'entries_fts'"
+_COUNTS = (
+    "SELECT (SELECT count(*) FROM entries), (SELECT count(*) FROM entries_fts_docsize)"
 )
 _BUSY_SECONDS = 10.0
 T = TypeVar("T")
-_COLUMNS = "id, ts, kind, change, text, pinned"
+
+_SELECT = "SELECT id, ts, kind, change, text, pinned, resolved FROM entries"
+_RECENT = _SELECT + " ORDER BY ts DESC, id DESC LIMIT ?"
+_PINNED = _SELECT + " WHERE pinned = 1 ORDER BY ts DESC, id DESC"
+_BY_ID = _SELECT + " WHERE id = ?"
+_ALL = _SELECT + " ORDER BY ts DESC, id DESC"
+_MATCH = (
+    "SELECT e.id, e.ts, e.kind, e.change, e.text, e.pinned, e.resolved "
+    "FROM entries_fts JOIN entries AS e ON e.id = entries_fts.rowid "
+    "WHERE entries_fts MATCH ? ORDER BY rank LIMIT ?"
+)
 
 
 class JournalError(Exception):
@@ -55,6 +69,7 @@ class Entry:
         change: str | None - The active change when it was written.
         text: str - Redacted text.
         pinned: bool - Always included in the brief.
+        resolved: bool - A blocker or todo that no longer stands.
 
     """
 
@@ -64,10 +79,11 @@ class Entry:
     change: str | None
     text: str
     pinned: bool
+    resolved: bool = False
 
 
 def _entry(row: tuple[object, ...]) -> Entry:
-    id_, ts, kind, change, text, pinned = row
+    id_, ts, kind, change, text, pinned, resolved = row
     return Entry(
         cast("int", id_),
         cast("str", ts),
@@ -75,6 +91,7 @@ def _entry(row: tuple[object, ...]) -> Entry:
         cast("str | None", change),
         cast("str", text),
         bool(pinned),
+        bool(resolved),
     )
 
 
@@ -82,19 +99,53 @@ def _now() -> str:
     return dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-_SELECT = "SELECT id, ts, kind, change, text, pinned FROM entries"
-_RECENT = _SELECT + " ORDER BY ts DESC, id DESC LIMIT ?"
-_PINNED = _SELECT + " WHERE pinned = 1 ORDER BY ts DESC, id DESC"
-_BY_ID = _SELECT + " WHERE id = ?"
-_ALL = _SELECT + " ORDER BY ts DESC, id DESC"
-_MATCH = (
-    "SELECT e.id, e.ts, e.kind, e.change, e.text, e.pinned FROM entries_fts "
-    "JOIN entries AS e ON e.id = entries_fts.rowid "
-    "WHERE entries_fts MATCH ? ORDER BY rank LIMIT ?"
-)
-_UNINDEXED = (
-    "SELECT count(*) FROM entries WHERE id NOT IN (SELECT rowid FROM entries_fts)"
-)
+def fold(text: str) -> str:
+    """Fold text for search: case and diacritics, so yo (U+0451) reads as ie.
+
+    Args:
+        text: str - Any text.
+
+    Returns:
+        str - The folded text.
+
+    """
+    decomposed = unicodedata.normalize("NFKD", text.casefold())
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
+def main_root(root: Path) -> Path:
+    """Return the project root that owns the journal.
+
+    A git worktree (such as an execution worktree) shares the journal of the main
+    working tree, when that tree is set up for grillspec.
+
+    Args:
+        root: Path - The project root grillspec found.
+
+    Returns:
+        Path - The main working tree's root, or ``root``.
+
+    """
+    dotgit = root / ".git"
+    if not dotgit.is_file():
+        return root
+    try:
+        text = dotgit.read_text(encoding="utf-8").strip()
+    except OSError:
+        return root
+    if not text.startswith("gitdir:"):
+        return root
+    gitdir = Path(text.removeprefix("gitdir:").strip())
+    gitdir = gitdir if gitdir.is_absolute() else (root / gitdir)
+    common_file = gitdir / "commondir"
+    try:
+        common = (gitdir / common_file.read_text(encoding="utf-8").strip()).resolve()
+    except OSError:
+        return root
+    main = common.parent if common.name == ".git" else None
+    if main is not None and (main / ".grillspec").is_dir():
+        return main
+    return root
 
 
 def _busy(error: sqlite3.OperationalError) -> bool:
@@ -154,8 +205,60 @@ def _transaction(con: sqlite3.Connection, work: Callable[[], T]) -> T:
     return _retrying(attempt)
 
 
+def _create_fts(con: sqlite3.Connection) -> bool:
+    """Create the FTS5 index and bring it in step with the entries.
+
+    Args:
+        con: sqlite3.Connection - A connection inside a write transaction.
+
+    Returns:
+        bool - Whether FTS5 is in use (False when this SQLite lacks it).
+
+    Raises:
+        sqlite3.OperationalError: When the database is busy.
+
+    """
+    for statement in _DROP_TRIGGERS:
+        _ = con.execute(statement)
+    try:
+        _ = con.execute(_FTS_TABLE)
+        rows, indexed = cast("tuple[int, int]", con.execute(_COUNTS).fetchall()[0])
+    except sqlite3.OperationalError as error:
+        if _busy(error):
+            raise
+        return False
+    if rows != indexed:  # entries written where FTS5 was missing or turned off
+        _ = con.execute("DELETE FROM entries_fts")
+        texts = cast(
+            "list[tuple[int, str]]",
+            con.execute("SELECT id, text FROM entries").fetchall(),
+        )
+        _ = con.executemany(
+            "INSERT INTO entries_fts(rowid, text) VALUES (?, ?)",
+            [(id_, fold(text)) for id_, text in texts],
+        )
+    return True
+
+
+def _unindex(con: sqlite3.Connection, entry_id: int) -> None:
+    """Drop an entry's folded copy from the index, if this SQLite can reach it.
+
+    Raises:
+        sqlite3.OperationalError: When the database is busy.
+
+    """
+    try:
+        _ = con.execute("DELETE FROM entries_fts WHERE rowid = ?", (entry_id,))
+        # Merge the segments, so no old segment still spells the deleted words.
+        _ = con.execute("INSERT INTO entries_fts(entries_fts) VALUES ('optimize')")
+    except sqlite3.OperationalError as error:
+        if _busy(error):
+            raise
+        # No index here, or FTS5 missing: the next FTS-capable write rebuilds it.
+
+
 def _setup(con: sqlite3.Connection, *, want_fts: bool | None) -> bool:
-    """Create the tables, and the FTS5 index when wanted and available.
+    """Create or migrate the tables, and the FTS5 index when wanted.
 
     Args:
         con: sqlite3.Connection - Open autocommit connection.
@@ -166,25 +269,45 @@ def _setup(con: sqlite3.Connection, *, want_fts: bool | None) -> bool:
 
     """
     _ = _retrying(lambda: con.execute("PRAGMA journal_mode=WAL").fetchall())
+    _ = con.execute("PRAGMA secure_delete=ON")
 
     def create() -> bool:
         for statement in _SCHEMA:
             _ = con.execute(statement)
-        if want_fts is False:
-            return False
-        try:
-            for statement in _FTS:
-                _ = con.execute(statement)
-        except sqlite3.OperationalError as error:
-            if _busy(error):
-                raise
-            return False
-        missing = cast("list[tuple[int]]", con.execute(_UNINDEXED).fetchall())
-        if missing[0][0]:
-            _ = con.execute("INSERT INTO entries_fts(entries_fts) VALUES ('rebuild')")
-        return True
+        columns = {
+            cast("str", row[1])
+            for row in cast(
+                "list[tuple[object, ...]]",
+                con.execute("PRAGMA table_info(entries)").fetchall(),
+            )
+        }
+        if "resolved" not in columns:
+            _ = con.execute(
+                "ALTER TABLE entries ADD COLUMN resolved INTEGER NOT NULL DEFAULT 0"
+            )
+        return False if want_fts is False else _create_fts(con)
 
     return _transaction(con, create)
+
+
+def _readable_fts(con: sqlite3.Connection) -> bool:
+    """Tell whether a read may use the FTS5 index: present, loadable, complete.
+
+    Args:
+        con: sqlite3.Connection - A read connection.
+
+    Returns:
+        bool - True when ``MATCH`` queries return every entry they should.
+
+    """
+    try:
+        present = cast("list[tuple[int]]", con.execute(_HAS_FTS).fetchall())[0][0]
+        if not present:
+            return False
+        rows, indexed = cast("tuple[int, int]", con.execute(_COUNTS).fetchall()[0])
+    except sqlite3.OperationalError:
+        return False  # FTS5 missing in this Python, or an older index layout
+    return rows == indexed
 
 
 class Journal:
@@ -194,11 +317,11 @@ class Journal:
         """Point at a project's journal; nothing is created until the first write.
 
         Args:
-            root: Path - Project root.
+            root: Path - Project root (a worktree uses its main tree's journal).
             fts: bool | None - Force full-text search on or off; None detects it.
 
         """
-        self.folder: Path = root / ".grillspec" / "journal"
+        self.folder: Path = main_root(root) / ".grillspec" / "journal"
         self.path: Path = self.folder / "memory.db"
         self._want_fts: bool | None = fts
         self.fts: bool = False
@@ -206,22 +329,17 @@ class Journal:
     def _message(self, error: sqlite3.Error) -> str:
         return f"{self.path}: {error}"
 
-    def _connect(self, *, create: bool) -> sqlite3.Connection | None:
-        """Open the database, creating it (and its ignore file) when asked.
-
-        Args:
-            create: bool - Create the store when it does not exist.
+    def _open_write(self) -> sqlite3.Connection:
+        """Open (creating if needed) the store for a write, schema ready.
 
         Returns:
-            sqlite3.Connection | None - None when it does not exist and is not created.
+            sqlite3.Connection - An autocommit connection.
 
         Raises:
             JournalError: If SQLite refuses the file.
 
         """
         if not self.path.is_file():
-            if not create:
-                return None
             self.folder.mkdir(parents=True, exist_ok=True)
             ignore = self.folder / ".gitignore"
             if not ignore.is_file():
@@ -237,8 +355,28 @@ class Journal:
             raise JournalError(self._message(error)) from None
         return con
 
+    def _open_read(self) -> sqlite3.Connection | None:
+        """Open the store read-only, without locks or schema changes.
+
+        Returns:
+            sqlite3.Connection | None - None when the store does not exist yet.
+
+        Raises:
+            JournalError: If the file is not a usable database.
+
+        """
+        if not self.path.is_file():
+            return None
+        uri = self.path.resolve().as_uri() + "?mode=ro"
+        try:
+            con = sqlite3.connect(uri, uri=True, timeout=5, isolation_level=None)
+        except sqlite3.Error as error:
+            raise JournalError(self._message(error)) from None
+        self.fts = self._want_fts is not False and _readable_fts(con)
+        return con
+
     def _rows(self, sql: str, params: tuple[object, ...] = ()) -> list[Entry]:
-        con = self._connect(create=False)
+        con = self._open_read()
         if con is None:
             return []
         with closing(con):
@@ -250,28 +388,32 @@ class Journal:
                 raise JournalError(self._message(error)) from None
         return [_entry(row) for row in rows]
 
-    def _write(self, sql: str, params: tuple[object, ...]) -> int:
-        con = self._connect(create=True)
-        if con is None:  # create=True always connects
-            return 0
+    def _write(self, work: Callable[[sqlite3.Connection], T]) -> T:
+        con = self._open_write()
         with closing(con):
             try:
-                return _transaction(
-                    con, lambda: con.execute(sql, params).lastrowid or 0
-                )
+                return _transaction(con, lambda: work(con))
             except sqlite3.Error as error:
                 raise JournalError(self._message(error)) from None
 
     def add(
-        self, kind: str, text: str, *, change: str | None, ts: str | None = None
+        self,
+        kind: str,
+        text: str,
+        *,
+        change: str | None,
+        ts: str | None = None,
+        trusted: bool = False,
     ) -> Entry:
-        """Store one entry after redaction.
+        """Store one entry, redacted unless grillspec wrote the text itself.
 
         Args:
             kind: str - One of ``KINDS``.
-            text: str - The text; private spans and secrets are removed first.
+            text: str - The text.
             change: str | None - The active change.
             ts: str | None - UTC timestamp; now when None.
+            trusted: bool - grillspec's own event text (change ids and fixed
+                phrases), stored as is.
 
         Returns:
             Entry - The stored entry.
@@ -283,12 +425,22 @@ class Journal:
         if kind not in KINDS:
             msg = f"unknown kind {kind!r}; use one of {', '.join(KINDS)}"
             raise JournalError(msg)
-        clean = redact(text).strip()
+        clean = (text if trusted else redact(text)).strip()
         stamp = ts or _now()
-        row = self._write(
-            "INSERT INTO entries(ts, kind, change, text) VALUES (?, ?, ?, ?)",
-            (stamp, kind, change, clean),
-        )
+
+        def insert(con: sqlite3.Connection) -> int:
+            row = con.execute(
+                "INSERT INTO entries(ts, kind, change, text) VALUES (?, ?, ?, ?)",
+                (stamp, kind, change, clean),
+            ).lastrowid
+            if self.fts:
+                _ = con.execute(
+                    "INSERT INTO entries_fts(rowid, text) VALUES (?, ?)",
+                    (row, fold(clean)),
+                )
+            return cast("int", row)
+
+        row = self._write(insert)
         return Entry(row, stamp, kind, change, clean, pinned=False)
 
     def recent(self, limit: int) -> list[Entry]:
@@ -316,11 +468,13 @@ class Journal:
             Entry | None - The entry, or None.
 
         """
+        if not 0 < entry_id <= _MAX_ID:
+            return None
         found = self._rows(_BY_ID, (entry_id,))
         return found[0] if found else None
 
     def search(self, query: str, limit: int) -> list[Entry]:
-        """Find entries containing every word of the query.
+        """Find entries containing every word of the query (words match prefixes).
 
         Args:
             query: str - Free text; operators and punctuation are ignored.
@@ -330,24 +484,54 @@ class Journal:
             list[Entry] - Best matches first (FTS5 rank, else newest first).
 
         """
-        words = cast("list[str]", _WORD.findall(query))
+        words = cast("list[str]", _WORD.findall(fold(query)))
         if not words:
             return []
-        _ = self._rows(_RECENT, (0,))  # connects, so self.fts is known
+        con = self._open_read()
+        if con is None:
+            return []
+        con.close()
         if self.fts:
-            match = " ".join(f'"{word}"' for word in words)
+            match = " ".join(f'"{word}"*' for word in words)
             return self._rows(_MATCH, (match, limit))
-        folded = [word.casefold() for word in words]
         everything = self._rows(_ALL)
-        hits = [e for e in everything if all(w in e.text.casefold() for w in folded)]
+        hits = [e for e in everything if all(w in fold(e.text) for w in words)]
         return hits[:limit]
+
+    def _update(self, sql: str, params: tuple[object, ...]) -> None:
+        _ = self._write(lambda con: con.execute(sql, params))
 
     def set_pinned(self, entry_id: int, *, flag: bool) -> None:
         """Pin or unpin an entry."""
-        _ = self._write(
+        self._update(
             "UPDATE entries SET pinned = ? WHERE id = ?", (int(flag), entry_id)
         )
 
+    def set_resolved(self, entry_id: int, *, flag: bool) -> None:
+        """Mark a blocker or todo resolved, or open again."""
+        self._update(
+            "UPDATE entries SET resolved = ? WHERE id = ?", (int(flag), entry_id)
+        )
+
     def forget(self, entry_id: int) -> None:
-        """Delete an entry for good."""
-        _ = self._write("DELETE FROM entries WHERE id = ?", (entry_id,))
+        """Delete an entry for good, leaving no copy in the file or its index.
+
+        Raises:
+            JournalError: If SQLite fails.
+
+        """
+
+        def delete(con: sqlite3.Connection) -> None:
+            _ = con.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
+            _unindex(con, entry_id)
+
+        self._write(delete)
+        con = self._open_write()
+        with closing(con):
+            try:
+                _ = _retrying(lambda: con.execute("VACUUM"))
+                _ = _retrying(
+                    lambda: con.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchall()
+                )
+            except sqlite3.Error as error:
+                raise JournalError(self._message(error)) from None

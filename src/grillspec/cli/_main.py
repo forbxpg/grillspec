@@ -152,7 +152,7 @@ def _add_note(note: argparse.ArgumentParser) -> None:
     """
     _ = note.add_argument("kind", choices=NOTE_KINDS)
     _ = note.add_argument(
-        "text", help="one line, at most 500 characters (put -- first)"
+        "text", nargs="+", help="one line, at most 500 characters (put -- first)"
     )
 
 
@@ -184,6 +184,9 @@ def _add_recall(recall: argparse.ArgumentParser) -> None:
     )
     _ = action.add_argument("--unpin", type=int, metavar="ID")
     _ = action.add_argument("--forget", type=int, metavar="ID", help="delete for good")
+    _ = action.add_argument(
+        "--resolve", type=int, metavar="ID", help="a blocker or todo no longer stands"
+    )
     _ = recall.add_argument("--json", action="store_true", help="print JSON")
     _ = recall.add_argument("--limit", type=int, default=20)
 
@@ -356,7 +359,7 @@ def _note(kind: str, text: str) -> int:
 
 
 def _recall(args: argparse.Namespace) -> int:
-    """Search, show the brief, or pin, unpin or forget one entry.
+    """Search, show the brief, or pin, unpin, resolve or forget one entry.
 
     Args:
         args: argparse.Namespace - Parsed ``recall`` arguments.
@@ -371,7 +374,7 @@ def _recall(args: argparse.Namespace) -> int:
     journal = Journal(root)
     if cast("bool", args.brief):
         return _print(brief(root, compute_status(root, load_config(root).config)))
-    for flag in ("pin", "unpin", "forget"):
+    for flag in ("pin", "unpin", "resolve", "forget"):
         entry_id = cast("int | None", getattr(args, flag))
         if entry_id is None:
             continue
@@ -380,6 +383,8 @@ def _recall(args: argparse.Namespace) -> int:
             return 1
         if flag == "forget":
             journal.forget(entry_id)
+        elif flag == "resolve":
+            journal.set_resolved(entry_id, flag=True)
         else:
             journal.set_pinned(entry_id, flag=flag == "pin")
         return _print(f"{flag} {entry_id}")
@@ -395,6 +400,7 @@ def _recall(args: argparse.Namespace) -> int:
                 "change": e.change,
                 "text": e.text,
                 "pinned": e.pinned,
+                "resolved": e.resolved,
             }
             for e in found
         ]
@@ -1181,7 +1187,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "use": lambda: _use(cast("str", args.change_id)),
         "hook": lambda: _hook(cast("str", args.event), cast("str", args.harness)),
         "gate": lambda: _gate(cast("str", args.action)),
-        "note": lambda: _note(cast("str", args.kind), cast("str", args.text)),
+        "note": lambda: _note(
+            cast("str", args.kind), " ".join(cast("list[str]", args.text))
+        ),
         "recall": lambda: _recall(args),
         "ui": lambda: _ui(
             port=cast("int", args.port), open_browser=not cast("bool", args.no_browser)

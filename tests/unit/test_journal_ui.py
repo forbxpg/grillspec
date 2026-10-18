@@ -5,13 +5,14 @@ from __future__ import annotations
 import http.client
 import json
 import re
+import socket
 import threading
 from typing import TYPE_CHECKING, cast
 
 import pytest
 
 from grillspec.config import load_config
-from grillspec.journal import Journal, brief
+from grillspec.journal import Journal, JournalError, brief
 from grillspec.journal._server import make_server
 from grillspec.state import compute_status
 from support import GATED_ID, phase_project
@@ -163,3 +164,83 @@ def test_forget_and_bad_requests(served: tuple[Path, ThreadingHTTPServer, str]):
         _request(server, "POST", "/api/pin", token=token, body={"id": 99999})[0] == 404
     )
     assert _request(server, "GET", "/../../etc/passwd", token=token)[0] == 404
+
+
+def _raw(server: ThreadingHTTPServer, request: bytes) -> int:
+    port = server.server_address[1]
+    with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+        sock.sendall(request.replace(b"{port}", str(port).encode()))
+        return int(sock.recv(64).split(b" ")[1])
+
+
+def test_odd_tokens_and_bodies(served: tuple[Path, ThreadingHTTPServer, str]):  # M3
+    root, server, token = served
+    entry = Journal(root).add("todo", "keep me", change=None)
+    head = b"Host: 127.0.0.1:{port}\r\nX-Grillspec-Token: " + token.encode() + b"\r\n"
+    assert (
+        _raw(
+            server,
+            "GET /api/entries?t=пароль HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n".encode(),
+        )
+        == 403
+    )
+    assert (
+        _raw(
+            server, b"POST /api/pin HTTP/1.1\r\n" + head + b"Content-Length: -5\r\n\r\n"
+        )
+        == 400
+    )
+    assert (
+        _raw(
+            server, b"POST /api/pin HTTP/1.1\r\n" + head + b"Content-Length: x\r\n\r\n"
+        )
+        == 400
+    )
+    assert (
+        _raw(
+            server,
+            b"POST /api/pin HTTP/1.1\r\n" + head + b"Content-Length: 999999\r\n\r\n",
+        )
+        == 413
+    )
+    assert (
+        _request(server, "POST", "/api/pin", token=token, body={"id": 2**70})[0] == 404
+    )
+    assert Journal(root).get(entry.id) is not None
+
+
+def test_pinned_and_resolve_endpoints(
+    served: tuple[Path, ThreadingHTTPServer, str],
+):  # M5, I6
+    root, server, token = served
+    journal = Journal(root)
+    pinned = journal.add("discovery", "always shown", change=None)
+    blocker = journal.add("blocker", "staging down", change=None)
+    journal.set_pinned(pinned.id, flag=True)
+    status, body = _request(server, "GET", "/api/pinned", token=token)
+    assert status == 200
+    assert [e["text"] for e in json.loads(body)["entries"]] == ["always shown"]
+    assert (
+        _request(server, "POST", "/api/resolve", token=token, body={"id": blocker.id})[
+            0
+        ]
+        == 200
+    )
+    resolved = Journal(root).get(blocker.id)
+    assert resolved is not None
+    assert resolved.resolved
+    _, body = _request(server, "GET", "/api/entries", token=token)
+    assert {e["text"]: e["resolved"] for e in json.loads(body)["entries"]}[
+        "staging down"
+    ]
+
+
+def test_port_taken_is_one_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):  # M3
+    monkeypatch.chdir(tmp_path)
+    root = phase_project(tmp_path, "spec")
+    first, _ = make_server(root)
+    try:
+        with pytest.raises(JournalError, match="in use"):
+            _ = make_server(root, first.server_address[1])
+    finally:
+        first.server_close()

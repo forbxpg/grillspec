@@ -54,6 +54,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; pa
 .kind.event { color: var(--event); } .kind.handoff { color: var(--handoff); } .kind.discovery { color: var(--discovery); }
 .kind.blocker { color: var(--blocker); } .kind.todo { color: var(--todo); }
 .text { white-space: pre-wrap; word-break: break-word; }
+.entry.resolved .text { color: var(--muted); text-decoration: line-through; }
 .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .actions { display: flex; gap: 4px; opacity: .55; }
 .entry:hover .actions, .actions:focus-within { opacity: 1; }
@@ -101,6 +102,7 @@ kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px sol
   const SESSION_GAP_MS = 2 * 60 * 60 * 1000;
   const shown = new Set(KINDS);
   let entries = [];
+  let card = null;
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
 
@@ -119,7 +121,7 @@ kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px sol
   }
 
   function entryNode(e) {
-    const row = el("div", "entry" + (e.pinned ? " pinned" : ""));
+    const row = el("div", "entry" + (e.pinned ? " pinned" : "") + (e.resolved ? " resolved" : ""));
     row.append(el("span", "kind " + e.kind, e.kind));
     const body = el("div");
     body.append(el("div", "text", e.text));
@@ -133,17 +135,33 @@ kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px sol
     const del = el("button", "", "✕");
     del.title = "Delete for good";
     del.addEventListener("click", () => { if (confirm(`Delete #${e.id} for good?`)) act("/api/forget", e.id); });
-    actions.append(pin, del);
+    actions.append(pin);
+    if ((e.kind === "blocker" || e.kind === "todo") && !e.resolved) {
+      const done = el("button", "", "✓");
+      done.title = "Resolve: leaves the brief's open list";
+      done.addEventListener("click", () => act("/api/resolve", e.id));
+      actions.append(done);
+    }
+    actions.append(del);
     row.append(actions);
     return row;
   }
 
-  function renderTimeline() {
+  function renderTimeline(searching) {
     const box = $("timeline");
     box.replaceChildren();
     const visible = entries.filter((e) => shown.has(e.kind));
-    if (!visible.length) { box.append(el("div", "card empty", $("q").value ? "No matches." : "Nothing recorded yet.")); return; }
-    let card = null, last = null;
+    if (!visible.length) { box.append(el("div", "card empty", searching ? "No matches." : "Nothing recorded yet.")); return; }
+    if (searching) {  // best matches first: no session grouping
+      const session = el("div", "session");
+      session.append(el("h3", "", `Matches · ${visible.length}`));
+      card = el("div", "card");
+      for (const e of visible) card.append(entryNode(e));
+      session.append(card);
+      box.append(session);
+      return;
+    }
+    let last = null;
     for (const e of visible) {
       const at = new Date(e.ts).getTime();
       if (last === null || last - at >= SESSION_GAP_MS) {
@@ -159,9 +177,8 @@ kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px sol
     }
   }
 
-  function renderPinned(all) {
+  function renderPinned(pinned) {
     const box = $("pinned");
-    const pinned = all.filter((e) => e.pinned);
     box.replaceChildren();
     if (!pinned.length) { box.textContent = "Nothing pinned."; return; }
     for (const e of pinned) box.append(el("div", "change", `★ ${e.text}`));
@@ -173,7 +190,7 @@ kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px sol
     for (const kind of KINDS) {
       const b = el("button", "", kind);
       b.setAttribute("aria-pressed", String(shown.has(kind)));
-      b.addEventListener("click", () => { shown.has(kind) ? shown.delete(kind) : shown.add(kind); renderFilters(); renderTimeline(); });
+      b.addEventListener("click", () => { shown.has(kind) ? shown.delete(kind) : shown.add(kind); renderFilters(); renderTimeline(Boolean($("q").value.trim())); });
       box.append(b);
     }
   }
@@ -200,8 +217,8 @@ kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px sol
     try {
       const data = q ? await api("/api/search?q=" + encodeURIComponent(q)) : await api("/api/entries");
       entries = data.entries;
-      renderTimeline();
-      renderPinned(q ? (await api("/api/entries")).entries : entries);
+      renderTimeline(Boolean(q));
+      renderPinned((await api("/api/pinned")).entries);
     } catch (err) {
       $("timeline").replaceChildren(el("div", "card empty error", err.message));
     }

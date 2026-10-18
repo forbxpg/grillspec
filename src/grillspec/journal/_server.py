@@ -44,6 +44,7 @@ def _entry(entry: Entry) -> dict[str, object]:
         "change": entry.change,
         "text": entry.text,
         "pinned": entry.pinned,
+        "resolved": entry.resolved,
     }
 
 
@@ -69,6 +70,7 @@ class _Handler(BaseHTTPRequestHandler):
     root: ClassVar[Path]
     token: ClassVar[str]
     nonce: ClassVar[str]
+    close_connection: bool
     server_version: str = "grillspec"
 
     def log_message(self, format: str, *args: object) -> None:  # ruff: ignore[builtin-argument-shadowing]  # pyright: ignore[reportImplicitOverride]
@@ -96,7 +98,9 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _authorised(self, query: dict[str, list[str]]) -> bool:
         given = self.headers.get("X-Grillspec-Token") or (query.get("t") or [""])[0]
-        return self._allowed_host() and secrets.compare_digest(given, self.token)
+        return self._allowed_host() and secrets.compare_digest(
+            given.encode("utf-8", "surrogateescape"), self.token.encode("ascii")
+        )
 
     def do_GET(self) -> None:
         """Serve the page or a read-only API call."""
@@ -116,6 +120,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(200, _page(self.nonce), "text/html; charset=utf-8")
         elif path == "/api/entries":
             self._json(200, {"entries": [_entry(e) for e in journal.recent(_LIMIT)]})
+        elif path == "/api/pinned":
+            self._json(200, {"entries": [_entry(e) for e in journal.pinned()]})
         elif path == "/api/search":
             words = (query.get("q") or [""])[0]
             self._json(
@@ -143,7 +149,7 @@ class _Handler(BaseHTTPRequestHandler):
         }
 
     def _apply(self, action: str, entry_id: int) -> int:
-        """Pin, unpin or forget one entry.
+        """Pin, unpin, resolve or forget one entry.
 
         Returns:
             int - 200, or 404 when the entry does not exist.
@@ -154,25 +160,50 @@ class _Handler(BaseHTTPRequestHandler):
             return HTTPStatus.NOT_FOUND
         if action == "forget":
             journal.forget(entry_id)
+        elif action == "resolve":
+            journal.set_resolved(entry_id, flag=True)
         else:
             journal.set_pinned(entry_id, flag=action == "pin")
         return HTTPStatus.OK
 
+    def _body(self) -> object:
+        """Read the JSON body, refusing a missing, odd or oversized length.
+
+        Returns:
+            object - The parsed JSON, or an HTTPStatus to answer with instead.
+
+        """
+        raw = self.headers.get("Content-Length") or ""
+        if not raw.isdigit():
+            return HTTPStatus.BAD_REQUEST
+        length = int(raw)
+        if length > _MAX_BODY:
+            return HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+        try:
+            return cast("object", json.loads(self.rfile.read(length)))
+        except ValueError:
+            return None
+
     def do_POST(self) -> None:
-        """Pin, unpin or forget one entry."""
+        """Pin, unpin, resolve or forget one entry."""
         url = urlsplit(self.path)
         if not self._authorised({}):
             self._send(403, b"forbidden", "text/plain")
             return
-        action = {"/api/pin": "pin", "/api/unpin": "unpin", "/api/forget": "forget"}
+        action = {
+            "/api/pin": "pin",
+            "/api/unpin": "unpin",
+            "/api/resolve": "resolve",
+            "/api/forget": "forget",
+        }
         if url.path not in action:
             self._send(404, b"not found", "text/plain")
             return
-        length = int(self.headers.get("Content-Length") or 0)
-        try:
-            data = cast("object", json.loads(self.rfile.read(min(length, _MAX_BODY))))
-        except ValueError:
-            data = None
+        data = self._body()
+        if isinstance(data, HTTPStatus):
+            self.close_connection = True
+            self._json(data, {"error": "bad Content-Length"})
+            return
         entry_id = (
             cast("dict[str, object]", data).get("id")
             if isinstance(data, dict)
@@ -202,6 +233,9 @@ def make_server(root: Path, port: int = 0) -> tuple[ThreadingHTTPServer, str]:
     Returns:
         tuple[ThreadingHTTPServer, str] - The server (not started) and its token.
 
+    Raises:
+        JournalError: When the port cannot be bound.
+
     """
     token = secrets.token_urlsafe(24)
     handler = type(
@@ -209,7 +243,11 @@ def make_server(root: Path, port: int = 0) -> tuple[ThreadingHTTPServer, str]:
         (_Handler,),
         {"root": root, "token": token, "nonce": secrets.token_urlsafe(16)},
     )
-    return ThreadingHTTPServer((HOST, port), handler), token
+    try:
+        return ThreadingHTTPServer((HOST, port), handler), token
+    except OSError as error:
+        msg = f"cannot listen on {HOST}:{port} (in use? pick another --port): {error}"
+        raise JournalError(msg) from None
 
 
 def serve(root: Path, *, port: int = 0, open_browser: bool = True) -> None:

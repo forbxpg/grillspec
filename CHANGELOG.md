@@ -12,9 +12,10 @@ release may break things and says so here.
 - Session memory: a per-project journal (`.grillspec/journal/memory.db`, never
   committed) of grillspec events and the agent's `handoff`, `discovery`, `blocker` and
   `todo` notes (`grillspec note`); a resume brief of at most 1,500 tokens at every
-  session start; `grillspec recall` to search, pin and forget; `grillspec ui`, a local
-  token-guarded viewer. Secrets and `<private>` text are never stored. No second LLM,
-  no network.
+  session start; `grillspec recall` to search (prefix words, ё as е), pin, resolve and
+  forget; `grillspec ui`, a local token-guarded viewer. Git worktrees share the main
+  tree's journal. Secrets and `<private>` text are never stored, and a forgotten entry
+  leaves no copy in the file. No second LLM, no network.
 
 - GigaCode: grillspec is a native GigaCode extension (`gigacode-extension.json`), linked
   from a local folder with `gigacode extensions link` — no npx, uv or network. It loads
