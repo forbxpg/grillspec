@@ -7,6 +7,14 @@ release may break things and says so here.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-18
+
+### Added
+
+- Plugin icon for the Claude plugin directory.
+- README section on data and privacy: what the council sends to external agent CLIs
+  and how to turn it off.
+
 ### Changed
 
 - Antigravity: the phase gate is on. Its "no opinion" answer is now an empty reply
@@ -45,5 +53,6 @@ First public release.
 - `grillspec tokens` and a generated cost table in the docs; measured session
   overhead.
 
-[Unreleased]: https://github.com/forbxpg/grillspec/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/forbxpg/grillspec/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/forbxpg/grillspec/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/forbxpg/grillspec/releases/tag/v0.1.0
