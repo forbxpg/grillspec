@@ -120,3 +120,39 @@ def test_russian_numbers_and_wording():  # M11
     assert "каталог скиллов:" in table
     assert "1,2" not in table
     assert "1 2" in table
+
+
+def test_nul_filled_file_is_binary(tmp_path: Path):  # PR #4 review
+    root = _copy_skills(tmp_path)
+    before = measure(root, None)
+    _ = (root / "skills" / "grillspec-archive" / "zeros.bin").write_bytes(
+        b"\x00" * 9000
+    )
+    assert measure(root, None) == before
+
+
+def test_markdown_with_project_lists_memory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):  # PR #4 review
+    write(
+        tmp_path / ".grillspec/config.toml",
+        'version = 1\n[spec]\nbackend = "openspec"\n',
+    )
+    write(
+        tmp_path / "AGENTS.md",
+        "<!-- grillspec:memory:begin -->\n- [docs] x (change: a)\n<!-- grillspec:memory:end -->\n",
+    )
+    monkeypatch.chdir(tmp_path)
+    assert main(["tokens", "--markdown", "--project"]) == 0
+    assert "| project memory block | every session |" in capsys.readouterr().out
+    assert "memory block" not in render_markdown(measure(data_root(), None))
+
+
+def test_cli_marks_router_as_counted(
+    capsys: pytest.CaptureFixture[str],
+):  # PR #4 review
+    assert main(["tokens"]) == 0
+    line = next(
+        x for x in capsys.readouterr().out.splitlines() if "using-grillspec" in x
+    )
+    assert "counted in the router" in line

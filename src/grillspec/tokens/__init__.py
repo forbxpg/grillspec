@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ._estimate import (
     BYTES_PER_TOKEN,
+    ROUTER,
     Costs,
     SkillCost,
     estimate,
@@ -13,6 +14,7 @@ from ._estimate import (
 
 __all__ = (
     "BYTES_PER_TOKEN",
+    "ROUTER",
     "Costs",
     "SkillCost",
     "estimate",

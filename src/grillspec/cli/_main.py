@@ -68,7 +68,7 @@ from grillspec.state import (
     resume_gates,
     set_active,
 )
-from grillspec.tokens import BYTES_PER_TOKEN, measure, render_markdown
+from grillspec.tokens import BYTES_PER_TOKEN, ROUTER, measure, render_markdown
 
 if TYPE_CHECKING:
     import io
@@ -866,6 +866,8 @@ def _tokens(*, as_json: bool, markdown: bool, project: bool) -> int:
     width = max(len(s.name) for s in costs.skills)
     for skill in costs.skills:
         extra = f" (+≈{skill.references:,} references)" if skill.references else ""
+        if skill.name == ROUTER:
+            extra = f"{extra} (counted in the router above)"
         lines.append(f"  {skill.name:<{width}}  ≈{skill.body:,}{extra}")
     lines.append(f"estimates: UTF-8 bytes / {BYTES_PER_TOKEN}")
     return _print("\n".join(lines))

@@ -109,8 +109,11 @@ def _text_tokens(path: Path) -> int:
 
     """
     try:
-        text = path.read_bytes().decode("utf-8")
+        data = path.read_bytes()
+        text = data.decode("utf-8")
     except (OSError, UnicodeDecodeError):
+        return 0
+    if b"\x00" in data:  # valid UTF-8 can still be binary
         return 0
     return estimate(text.replace("\r\n", "\n"))
 
@@ -189,6 +192,7 @@ _LABELS = {
         "hooks": "every session (hooks or `GIGACODE.md`)",
         "used": "when the skill is used",
         "is_router": "every session (the router above)",
+        "memory": "project memory block",
         "refs": "+up to {n} in references",
     },
     "ru": {
@@ -199,6 +203,7 @@ _LABELS = {
         "hooks": "каждая сессия (хуки или `GIGACODE.md`)",
         "used": "когда скилл используется",
         "is_router": "каждая сессия (это роутер выше)",
+        "memory": "блок памяти проекта",
         "refs": "+до {n} в справочных файлах",
     },
 }
@@ -228,6 +233,9 @@ def render_markdown(costs: Costs, language: str = "en") -> str:
         f"| {label['router']} | {label['hooks']} | {number(costs.router)} |",
         f"| {catalogue} | {label['every']} | {number(costs.catalogue)} |",
     ]
+    if costs.memory is not None:
+        memory = number(costs.memory)
+        rows.append(f"| {label['memory']} | {label['every']} | {memory} |")
     for skill in costs.skills:
         refs = label["refs"].format(n=number(skill.references))
         extra = f" ({refs})" if skill.references else ""

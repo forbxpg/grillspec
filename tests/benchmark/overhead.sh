@@ -29,8 +29,14 @@ print(total, ",".join(sorted(data.get("modelUsage", {}))) or "unknown")
 
 case "$HARNESS" in
   claude)
-    if claude plugin list 2>/dev/null | grep -q grillspec; then
-      echo "warning: grillspec is installed as a plugin; the 'without' run includes it" >&2
+    enabled="$(claude plugin list --json 2>/dev/null | python3 -c '
+import json, sys
+print(any(p.get("enabled") and p.get("id", "").startswith("grillspec@") for p in json.load(sys.stdin)))
+' || echo False)"
+    if [ "$enabled" = True ]; then
+      echo "grillspec is enabled as a plugin, so the 'without' run would include it;" >&2
+      echo "disable it (claude plugin disable grillspec@grillspec) and run again" >&2
+      exit 2
     fi
     read -r without model < <(claude -p "$PROMPT" --strict-mcp-config --output-format json </dev/null | usage)
     read -r with _ < <(claude -p "$PROMPT" --strict-mcp-config --plugin-dir "$REPO" --output-format json </dev/null | usage)
