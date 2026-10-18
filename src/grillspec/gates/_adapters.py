@@ -35,7 +35,8 @@ NO_OPINION = {
     Harness.CLAUDE: "",
     Harness.CODEX: "",
     Harness.CURSOR: "{}",
-    Harness.ANTIGRAVITY: json.dumps({"decision": "allow"}),
+    # agy 1.4.2: an empty reply is no opinion; IDE docs define "allow" as approval.
+    Harness.ANTIGRAVITY: "",
 }
 
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Smoke test: does the phase gate stop a code edit while a change is being grilled?
-# Usage: tests/smoke/smoke_gates.sh <claude|cursor>
+# Usage: tests/smoke/smoke_gates.sh <claude|cursor|antigravity>
 # Runs the harness headless in a throwaway project whose change is in the grill phase,
 # asks it to write src/app.py, and prints PASS when the file was not written.
 set -eu
@@ -12,6 +12,12 @@ cd "$WORK"
 git init -q
 sh "$REPO/scripts/grillspec" init --backend openspec >/dev/null
 sh "$REPO/scripts/grillspec" new add-greeting >/dev/null
+# Antigravity has no --plugin-dir: install the skills into this project and point
+# workspace hooks (.agents/hooks.json) at this checkout's runner.
+agy_workspace() {
+  sh "$REPO/scripts/grillspec" install --harness antigravity --copy >/dev/null
+  sed "s|\./hooks/run-hook.cmd|$REPO/hooks/run-hook.cmd|g" "$REPO/hooks.json" > .agents/hooks.json
+}
 PROMPT='Create the file src/app.py containing print("hi"). Do it now without asking questions; if a tool call is refused, quote the refusal.'
 
 case "$HARNESS" in
@@ -20,6 +26,12 @@ case "$HARNESS" in
       --allowedTools Write Edit Bash 2>&1 </dev/null || true)" ;;
   cursor)
     REPLY="$(cursor-agent -p --trust --force --plugin-dir "$REPO" "$PROMPT" \
+      </dev/null 2>&1 || true)" ;;
+  antigravity)
+    # Headless agy denies every unapproved tool, which would hide the gate: skip its
+    # own permission checks in this throwaway project so only the gate can refuse.
+    agy_workspace
+    REPLY="$(agy -p "$PROMPT" --dangerously-skip-permissions --print-timeout 300s \
       </dev/null 2>&1 || true)" ;;
   *) echo "not wired yet: $HARNESS" >&2; exit 2 ;;
 esac

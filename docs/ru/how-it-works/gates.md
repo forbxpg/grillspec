@@ -71,7 +71,7 @@ grillspec gate pause
 | Claude Code | `PreToolUse` на `Write`, `Edit`, `MultiEdit`, `NotebookEdit`, `Bash`, `PowerShell` | Хуки работают, когда папке выдано доверие. |
 | Codex | `PreToolUse` на `apply_patch`, `Bash` и `exec_command` | Одобрите хуки плагина через `/hooks` после установки и снова после каждого обновления плагина; до этого они не работают. |
 | Cursor | `preToolUse` на `Write`, `Delete`, `Shell` | Хуки работают в доверенных папках. |
-| Antigravity | `PreToolUse` на `write_to_file`, `replace_file_content`, `multi_replace_file_content`, `run_command` | Поставляется выключенным (`"enabled": false` в `hooks.json` плагина): в IDE 2.5 ответ хука `allow` означает автоодобрение, и «нет мнения» от ворот могло бы пропускать ваши запросы подтверждения. Включится, когда smoke-тест покажет безопасный ответ. |
+| Antigravity | `PreToolUse` на `write_to_file`, `replace_file_content`, `multi_replace_file_content`, `run_command` | Проверено с CLI `agy` 1.4.2. «Нет мнения» — пустой ответ, а не `allow`: некоторые версии Antigravity считают `allow` одобрением вызова за вас. IDE smoke-тестом пока не проверена. |
 | GigaCode | нет | Хуки GigaCode экспериментальные и по умолчанию выключены; там воротами служат скиллы. |
 
 Каждый хук при сбое пропускает вызов: если нет Python или что-то пошло не так, инструмент

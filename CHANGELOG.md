@@ -7,6 +7,14 @@ release may break things and says so here.
 
 ## [Unreleased]
 
+### Changed
+
+- Antigravity: the phase gate is on. Its "no opinion" answer is now an empty reply
+  instead of `{"decision": "allow"}`, which some Antigravity versions treat as approval;
+  verified with `agy` 1.4.2.
+- `grillspec-subagent-execution` keeps its process diagram, fix loop and example in
+  reference files, so its body stays under Antigravity's 24 KB skill limit.
+
 ## [0.1.0] - 2026-10-18
 
 First public release.

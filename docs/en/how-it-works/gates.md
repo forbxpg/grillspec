@@ -70,7 +70,7 @@ early. The gate blocks the agent's own `grillspec gate pause`, however it is quo
 | Claude Code | `PreToolUse` on `Write`, `Edit`, `MultiEdit`, `NotebookEdit`, `Bash`, `PowerShell` | Hooks run once the workspace is trusted. |
 | Codex | `PreToolUse` on `apply_patch`, `Bash` and `exec_command` | Approve the plugin's hooks with `/hooks` after installing, and again after every plugin update; until then they do not run. |
 | Cursor | `preToolUse` on `Write`, `Delete`, `Shell` | Hooks run in trusted workspaces. |
-| Antigravity | `PreToolUse` on `write_to_file`, `replace_file_content`, `multi_replace_file_content`, `run_command` | Shipped disabled (`"enabled": false` in the plugin's `hooks.json`): in IDE 2.5 a hook's `allow` means auto-approve, so the gate's "no opinion" could skip your approval prompts. It is turned on once a smoke test shows a safe answer. |
+| Antigravity | `PreToolUse` on `write_to_file`, `replace_file_content`, `multi_replace_file_content`, `run_command` | Verified with the `agy` CLI 1.4.2. "No opinion" is an empty reply, never `allow`, which some Antigravity versions treat as approving the call for you. The IDE is not smoke-tested yet. |
 | GigaCode | none | GigaCode's hooks are experimental and off by default; the skills are the gate there. |
 
 Every hook fails open: if Python is missing or anything goes wrong, the tool call runs.

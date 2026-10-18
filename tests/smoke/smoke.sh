@@ -3,7 +3,8 @@
 # Usage: tests/smoke/smoke.sh <claude|codex|cursor|antigravity|gigacode>
 # Runs the harness headless in a throwaway project and prints PASS or FAIL.
 # claude loads the plugin with --plugin-dir and changes nothing outside the temp dir;
-# the other harnesses need grillspec installed first (see docs/en/installation.md).
+# antigravity gets workspace hooks in the temp project; codex needs grillspec installed
+# first (see docs/en/installation.md).
 set -eu
 HARNESS="${1:?usage: smoke.sh <harness>}"
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -11,6 +12,12 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 cd "$WORK"
 git init -q
+# Antigravity has no --plugin-dir: install the skills into this project and point
+# workspace hooks (.agents/hooks.json) at this checkout's runner.
+agy_workspace() {
+  sh "$REPO/scripts/grillspec" install --harness antigravity --copy >/dev/null
+  sed "s|\./hooks/run-hook.cmd|$REPO/hooks/run-hook.cmd|g" "$REPO/hooks.json" > .agents/hooks.json
+}
 PROMPT='Reply with the first line starting with "grillspec:" that you were given at session start, or NONE.'
 EXPECT='grillspec: phase='
 if [ "$HARNESS" = gigacode ]; then
@@ -23,7 +30,9 @@ case "$HARNESS" in
   claude) REPLY="$(claude -p --plugin-dir "$REPO" "$PROMPT" 2>&1 || true)" ;;
   codex) REPLY="$(codex exec --skip-git-repo-check "$PROMPT" </dev/null 2>&1 || true)" ;;
   cursor) REPLY="$(cursor-agent -p --trust --plugin-dir "$REPO" "$PROMPT" </dev/null 2>&1 || true)" ;;
-  antigravity) REPLY="$(agy -p "$PROMPT" 2>&1 || true)" ;;
+  antigravity)
+    agy_workspace
+    REPLY="$(agy -p "$PROMPT" --print-timeout 300s </dev/null 2>&1 || true)" ;;
   gigacode)
     sh "$REPO/scripts/grillspec" install --harness gigacode >/dev/null
     REPLY="$(gigacode -p "$PROMPT" 2>&1 || true)"

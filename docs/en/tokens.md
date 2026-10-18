@@ -29,7 +29,7 @@ CI fails when it falls behind the skills.
 | `grillspec-receiving-review` | when the skill is used | 1,315 |
 | `grillspec-requesting-review` | when the skill is used | 625 (+up to 1,434 in references) |
 | `grillspec-specs` | when the skill is used | 1,012 (+up to 913 in references) |
-| `grillspec-subagent-execution` | when the skill is used | 7,477 (+up to 4,516 in references) |
+| `grillspec-subagent-execution` | when the skill is used | 4,986 (+up to 7,103 in references) |
 | `grillspec-tdd` | when the skill is used | 2,426 (+up to 1,831 in references) |
 | `grillspec-verification` | when the skill is used | 762 |
 | `grillspec-worktrees` | when the skill is used | 1,487 |

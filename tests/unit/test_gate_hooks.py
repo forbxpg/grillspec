@@ -91,7 +91,7 @@ NO_OPINION = {
     Harness.CLAUDE: "",
     Harness.CODEX: "",
     Harness.CURSOR: "{}",
-    Harness.ANTIGRAVITY: '{"decision": "allow"}',
+    Harness.ANTIGRAVITY: "",  # agy: an empty reply defers; IDE docs say "allow" approves
 }
 HARNESSES = list(NO_OPINION)
 

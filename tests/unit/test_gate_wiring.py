@@ -95,7 +95,7 @@ def _run(
         ("claude", ""),
         ("codex", ""),
         ("cursor", "{}"),
-        ("antigravity", '{"decision": "allow"}'),
+        ("antigravity", ""),
     ],
 )
 def test_runner_without_python_has_no_opinion(
