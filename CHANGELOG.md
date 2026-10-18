@@ -7,6 +7,8 @@ release may break things and says so here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-18
+
 ### Added
 
 - Session memory: a per-project journal (`.grillspec/journal/memory.db`, never
@@ -16,7 +18,6 @@ release may break things and says so here.
   forget; `grillspec ui`, a local token-guarded viewer. Git worktrees share the main
   tree's journal. Secrets and `<private>` text are never stored, and a forgotten entry
   leaves no copy in the file. No second LLM, no network.
-
 - GigaCode: grillspec is a native GigaCode extension (`gigacode-extension.json`), linked
   from a local folder with `gigacode extensions link` — no npx, uv or network. It loads
   the router and the CLI line every session and brings phase gates for `write_file`,
@@ -70,6 +71,7 @@ First public release.
 - `grillspec tokens` and a generated cost table in the docs; measured session
   overhead.
 
-[Unreleased]: https://github.com/forbxpg/grillspec/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/forbxpg/grillspec/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/forbxpg/grillspec/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/forbxpg/grillspec/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/forbxpg/grillspec/releases/tag/v0.1.0
