@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -119,7 +120,7 @@ def test_russian_numbers_and_wording():  # M11
     table = render_markdown(measure(data_root(), None), "ru")
     assert "каталог скиллов:" in table
     assert "1,2" not in table
-    assert "1 2" in table
+    assert re.search(r"\d \d{3} ", table)  # thousands separated by a space
 
 
 def test_nul_filled_file_is_binary(tmp_path: Path):  # PR #4 review
