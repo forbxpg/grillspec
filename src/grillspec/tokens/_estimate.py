@@ -79,6 +79,42 @@ def estimate(text: str) -> int:
     return math.ceil(len(text.encode("utf-8")) / BYTES_PER_TOKEN)
 
 
+def _references(folder: Path) -> list[Path]:
+    """List a skill's other files, skipping dotfiles and dot-folders.
+
+    Args:
+        folder: Path - The skill folder.
+
+    Returns:
+        list[Path] - Sorted files other than ``SKILL.md``.
+
+    """
+    return [
+        path
+        for path in sorted(folder.rglob("*"))
+        if path.is_file()
+        and path.name != "SKILL.md"
+        and not any(part.startswith(".") for part in path.relative_to(folder).parts)
+    ]
+
+
+def _text_tokens(path: Path) -> int:
+    """Estimate a text file; binary or non-UTF-8 files count as nothing.
+
+    Args:
+        path: Path - The file.
+
+    Returns:
+        int - Estimated tokens.
+
+    """
+    try:
+        text = path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        return 0
+    return estimate(text.replace("\r\n", "\n"))
+
+
 def _skill(folder: Path) -> tuple[SkillCost, str, str]:
     """Measure one skill folder.
 
@@ -96,22 +132,26 @@ def _skill(folder: Path) -> tuple[SkillCost, str, str]:
         for key, value in cast("list[tuple[str, str]]", _FIELD.findall(front))
     }
     name = fields.get("name", folder.name)
-    others = (
-        p for p in sorted(folder.rglob("*")) if p.is_file() and p.name != "SKILL.md"
-    )
-    references = sum(
-        estimate(p.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n"))
-        for p in others
-    )
+    references = sum(_text_tokens(path) for path in _references(folder))
     line = f"- {name}: {fields.get('description', '')}"
     return SkillCost(name, estimate(body.strip()), references), line, body.strip()
 
 
 def _memory(project: Path) -> int | None:
+    """Estimate a project's memory block.
+
+    Args:
+        project: Path - Project root.
+
+    Returns:
+        int | None - Its estimate, or None without ``AGENTS.md`` or a block. A
+            broken block (``BlockError``) or a non-UTF-8 file propagates.
+
+    """
     agents = project / "AGENTS.md"
     if not agents.is_file():
         return None
-    text = agents.read_text(encoding="utf-8").replace("\r\n", "\n")
+    text = agents.read_bytes().decode("utf-8").replace("\r\n", "\n")
     body = block_body(text, begin=MEMORY_BEGIN, end=MEMORY_END)
     return (
         None if body is None else estimate("\n".join([MEMORY_BEGIN, *body, MEMORY_END]))
@@ -146,18 +186,20 @@ _LABELS = {
         "router": "router and status line",
         "catalogue": "skill catalogue ({count} skills)",
         "every": "every session",
-        "hooks": "every session (hook harnesses)",
+        "hooks": "every session (hooks or `GIGACODE.md`)",
         "used": "when the skill is used",
-        "refs": "+{n} in references",
+        "is_router": "every session (the router above)",
+        "refs": "+up to {n} in references",
     },
     "ru": {
         "head": "| Часть | Когда загружается | ≈ токенов |",
         "router": "роутер и строка статуса",
-        "catalogue": "каталог скиллов ({count} скиллов)",
+        "catalogue": "каталог скиллов: {count}",
         "every": "каждая сессия",
-        "hooks": "каждая сессия (харнессы, где есть хуки)",
+        "hooks": "каждая сессия (хуки или `GIGACODE.md`)",
         "used": "когда скилл используется",
-        "refs": "+{n} в справочных файлах",
+        "is_router": "каждая сессия (это роутер выше)",
+        "refs": "+до {n} в справочных файлах",
     },
 }
 
@@ -174,15 +216,21 @@ def render_markdown(costs: Costs, language: str = "en") -> str:
 
     """
     label = _LABELS[language]
+    separator = " " if language == "ru" else ","
+
+    def number(value: int) -> str:
+        return f"{value:,}".replace(",", separator)
+
     catalogue = label["catalogue"].format(count=len(costs.skills))
     rows = [
         label["head"],
         "|---|---|---|",
-        f"| {label['router']} | {label['hooks']} | {costs.router:,} |",
-        f"| {catalogue} | {label['every']} | {costs.catalogue:,} |",
+        f"| {label['router']} | {label['hooks']} | {number(costs.router)} |",
+        f"| {catalogue} | {label['every']} | {number(costs.catalogue)} |",
     ]
     for skill in costs.skills:
-        refs = label["refs"].format(n=f"{skill.references:,}")
+        refs = label["refs"].format(n=number(skill.references))
         extra = f" ({refs})" if skill.references else ""
-        rows.append(f"| `{skill.name}` | {label['used']} | {skill.body:,}{extra} |")
+        when = label["is_router"] if skill.name == ROUTER else label["used"]
+        rows.append(f"| `{skill.name}` | {when} | {number(skill.body)}{extra} |")
     return "\n".join(rows)

@@ -829,7 +829,14 @@ def _tokens(*, as_json: bool, markdown: bool, project: bool) -> int:
         int - Exit code 0.
 
     """
-    costs = measure(data_root(), project_root(Path.cwd()) if project else None)
+    try:
+        costs = measure(data_root(), project_root(Path.cwd()) if project else None)
+    except (BlockError, UnicodeDecodeError) as error:
+        _ = sys.stderr.write(f"grillspec: AGENTS.md: {error}\n")
+        return 1
+    if not costs.skills:
+        _ = sys.stderr.write("grillspec: no skills found next to the CLI\n")
+        return 1
     if markdown:
         return _print(render_markdown(costs))
     if as_json:
@@ -853,6 +860,8 @@ def _tokens(*, as_json: bool, markdown: bool, project: bool) -> int:
     ]
     if costs.memory is not None:
         lines.append(f"  memory block            ≈{costs.memory:,}")
+    elif project:
+        lines.append("  memory block            none")
     lines.append("when a skill is used:")
     width = max(len(s.name) for s in costs.skills)
     for skill in costs.skills:
@@ -977,6 +986,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         int - The process exit code.
 
     """
+    for stream in (sys.stdout, sys.stderr):  # a legacy console must not crash on ≈ or →
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            _ = reconfigure(errors="replace")
     args = _build_parser().parse_args(argv)
     handlers: dict[str, Callable[[], int]] = {
         "version": lambda: _print(__version__),

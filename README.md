@@ -35,7 +35,8 @@ Then, in your project, ask the agent to "set up grillspec".
 - English: [docs/en](docs/en/README.md) — why each mechanism exists and how it works
 - Русский: [docs/ru](docs/ru/README.md)
 - Token costs: [docs/en/tokens.md](docs/en/tokens.md) — about 2,100 tokens per session
-  (measured), the rest only when a skill is used
+  in Claude Code (measured), plus your project's memory block; the rest only when a
+  skill is used
 
 ## Status
 
