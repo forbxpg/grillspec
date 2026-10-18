@@ -58,7 +58,8 @@ def test_crlf_doc_is_not_stale(tmp_path: Path):  # Review Focus 2
     )
     for language in ("en", "ru"):
         path = docs / language / "tokens.md"
-        _ = path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+        lf = path.read_bytes().replace(b"\r\n", b"\n")  # write() is CRLF on Windows
+        _ = path.write_bytes(lf.replace(b"\n", b"\r\n"))
     assert check_tokens.stale(docs, costs) == []
 
 
