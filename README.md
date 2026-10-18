@@ -33,12 +33,14 @@ written before the spec and plan are approved.
 
 ```mermaid
 flowchart LR
-    G["🔥 Grill<br/>decisions, one by one"] --> S["📜 Spec<br/>requirements + scenarios"]
-    S --> M["🧠 Memory<br/>durable facts"]
-    M --> P["🗺️ Plan<br/>test-first tasks"]
+    subgraph gated ["🚧 phase gate: no code until the plan is approved"]
+        direction LR
+        G["🔥 Grill<br/>decisions, one by one"] --> S["📜 Spec<br/>requirements + scenarios"]
+        S --> M["🧠 Memory<br/>durable facts"]
+        M --> P["🗺️ Plan<br/>test-first tasks"]
+    end
     P --> E["⚙️ Execute<br/>TDD + review"]
     E --> A["📦 Archive<br/>living specs"]
-    gate{{"🚧 phase gate: no code until the plan is approved"}} -.-> G & S & P
 ```
 
 ## Why grillspec
