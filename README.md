@@ -137,7 +137,8 @@ Council 3/4: A (claude, codex, simplicity) · dissent devil→B: retries hide ou
 ```
 
 The council advises; you decide. Members that run on the same model agreeing is
-called out as a weak signal.
+called out as a weak signal. Only GigaCode on the machine? It sits on the council
+itself, headless and without extensions.
 → [How the council works](docs/en/how-it-works/council.md)
 
 ### 📜 Specs — `grillspec-specs`

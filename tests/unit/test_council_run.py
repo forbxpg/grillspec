@@ -106,7 +106,19 @@ PROMPT = "the rendered prompt\nline two\n"
             ],
         ),
         ("cli:agy", ["--sandbox", "-p", INSTRUCTION]),
-        ("cli:gigacode", ["--approval-mode", "plan", "-o", "json", INSTRUCTION]),
+        (
+            "cli:gigacode",
+            [
+                "-e",
+                "none",
+                "--no-chat-recording",
+                "--approval-mode",
+                "plan",
+                "-o",
+                "json",
+                INSTRUCTION,
+            ],
+        ),
     ],
 )
 def test_argv_table(spec: str, tail: list[str]):

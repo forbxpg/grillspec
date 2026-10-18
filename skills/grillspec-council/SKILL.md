@@ -27,9 +27,9 @@ ask it: the members need time.
 
 ## 2. Members
 
-`council.members` in the config, when set. Otherwise: `role:simplicity`,
-`role:devil`, `role:risk`, plus every CLI that `grillspec detect --json` reports
-`installed`, not `authenticated: false` and not `experimental`.
+`council.members` in the config, when set. Otherwise the `council` list of
+`grillspec detect --json`: the three roles plus the installed, not logged-out CLIs
+(experimental ones such as `gigacode` only when no other CLI is there).
 
 - `role:<name>`: a subagent on your own model, with a lens (section 4).
 - `cli:<vendor>[@<model>]`: another vendor's agent CLI, called by `grillspec council ask`.
@@ -94,6 +94,8 @@ Same-model members agreeing is a weak signal.
 ```
 
 - `3/4`: members that answered / members asked.
+- A `cli:` member on your own harness's CLI without another `@<model>` is your model
+  too: count it with the roles in the weak-signal note.
 - A credible option a member raised that you did not list: add it to the options.
 - You disagree with the council: say why in one line. Do not smooth dissent over;
   when the council is right and you were wrong, say so.

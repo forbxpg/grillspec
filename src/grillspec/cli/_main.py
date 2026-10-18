@@ -24,7 +24,12 @@ from grillspec.council import (
     resolve_members,
     run_members,
 )
-from grillspec.detect import brownfield_signals, cli_report, recommend_backend
+from grillspec.detect import (
+    brownfield_signals,
+    cli_report,
+    council_defaults,
+    recommend_backend,
+)
 from grillspec.execute import (
     ExecError,
     ExecTarget,
@@ -574,7 +579,8 @@ def _council_ask_run(
     """Ask external council members about one decision.
 
     Args:
-        members: str | None - ``--members``, or None for the configured ones.
+        members: str | None - ``--members``, or None for the configured ones
+            (the defaults of ``detect --json`` when none are configured).
         payload_path: str | None - ``--payload`` file; None reads stdin.
         timeout: int | None - ``--timeout``, or None for ``council.timeout``.
         dry_run: bool - Print each call instead of making it.
@@ -593,7 +599,12 @@ def _council_ask_run(
     if config.council_external is External.NEVER:
         disabled = 'external council members are disabled (council.external = "never")'
         return 1, {"version": 1, "error": disabled}
-    chosen = resolve_members(members, config.council_members)
+    # Nothing configured: the defaults the council skill uses, which on a machine
+    # whose only agent CLI is GigaCode is GigaCode itself.
+    configured = config.council_members or (
+        tuple(council_defaults(cli_report())) if members is None else ()
+    )
+    chosen = resolve_members(members, configured)
     seconds = config.council_timeout if timeout is None else timeout
     if not 1 <= seconds <= MAX_TIMEOUT:
         msg = f"--timeout must be from 1 to 600 seconds, not {seconds}"
@@ -951,6 +962,7 @@ def _detect(*, as_json: bool) -> int:
                 }
                 for name, cli in clis.items()
             },
+            "council": council_defaults(clis),
         }
         _ = sys.stdout.write(json.dumps(payload) + "\n")
         return 0

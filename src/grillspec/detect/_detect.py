@@ -7,9 +7,13 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from grillspec.config import VENDOR_NAMES, Backend
+from grillspec.config import ROLE_NAMES, VENDOR_NAMES, Backend
 from grillspec.council import VENDORS, auth_state, resolve_cli
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 CODE_SUFFIXES = frozenset({
     ".c",
@@ -209,3 +213,29 @@ def cli_report() -> dict[str, CliStatus]:
         )
         for name in AGENT_CLIS
     }
+
+
+def council_defaults(report: Mapping[str, CliStatus]) -> list[str]:
+    """Pick the council members used when none are configured.
+
+    The three roles, plus every installed CLI that is not logged out and not
+    experimental. When that adds no CLI, as on a machine whose only agent CLI is
+    GigaCode, the installed experimental CLIs that are not logged out come in
+    instead, so the council still has an external member.
+
+    Args:
+        report: Mapping[str, CliStatus] - Vendor name to status, in vendor order.
+
+    Returns:
+        list[str] - Member entries such as ``role:devil`` and ``cli:codex``.
+
+    """
+    usable = [
+        (name, cli.experimental)
+        for name, cli in report.items()
+        if cli.installed and cli.authenticated is not False
+    ]
+    clis = [name for name, experimental in usable if not experimental] or [
+        name for name, experimental in usable if experimental
+    ]
+    return [*(f"role:{role}" for role in ROLE_NAMES), *(f"cli:{name}" for name in clis)]
