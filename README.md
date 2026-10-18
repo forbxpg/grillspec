@@ -40,6 +40,17 @@ Then, in your project, ask the agent to "set up grillspec".
 | Antigravity | unverified | the phase gate ships disabled until it is smoke-tested |
 | GigaCode | experimental | no hooks; the skills are the gate |
 
+## Data and privacy
+
+grillspec collects no personal data and runs no service of its own: its CLI and hooks
+work on files in your project. One feature sends data elsewhere — the **council**.
+When a grilling session uses it (`council.enabled` is `ask` by default, so you are
+asked each time), the question and its context go as a prompt to the agent CLIs
+installed and logged in on your machine (`claude`, `codex`, `cursor-agent`, `gemini`,
+`agy`, `gigacode`), under your own accounts with those vendors. Set
+`council.external = "never"` to keep the council to local subagents. See
+[How the council works](docs/en/how-it-works/council.md).
+
 ## Documentation
 
 - English: [docs/en](docs/en/README.md) — why each mechanism exists and how it works
