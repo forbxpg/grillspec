@@ -19,9 +19,10 @@ In `execute` and `done`, and with no active change, the hook says nothing.
 
 | Allowed | Why |
 |---|---|
-| everything under `.grillspec/` | approvals, sidecars and state |
+| `.grillspec/`, except `state.json`, `config.toml` and `changes/` | council payloads and other scratch files; only the CLI writes approvals, config and state |
 | OpenSpec: `openspec/changes/<id>/**` | the change's proposal, design, deltas and tasks |
 | superpowers: `docs/grillspec/specs/<id>.md` and `docs/grillspec/plans/<id>.md` | the change's spec (with its decision log) and plan |
+| `docs/grillspec/memory/` | long-form memory written after spec approval |
 | paths matching a `gates.allow` glob | your own exceptions, e.g. `["notes/*"]` |
 | anything outside the project | not project code |
 
@@ -39,9 +40,11 @@ grillspec gate: add-limits is in the spec phase, so only its spec artifacts may 
 The hook also reads shell commands and blocks the obvious writers whose target is not
 allowed: output redirection (`>`, `>>`, `&>`; `/dev/null` is fine), `tee`, `sed -i`,
 `perl -i`, `cp`, `mv`, `rm`, `touch`, `mkdir`, `ln`, `chmod`, the git commands that
-change files (`commit`, `checkout`, `restore`, `reset`, `stash`, `apply`, …), Codex
-`apply_patch` and PowerShell's file cmdlets. Everything else — `ls`, `git status`, test
-runs, `grillspec` itself — runs.
+change working-tree files (`restore`, `apply`, `clean`, `checkout --`, `reset --hard`,
+`stash` other than `list`/`show`, …), Codex `apply_patch`, and PowerShell's file cmdlets
+and their aliases. It follows a leading `cd dir &&`, looks inside `bash -c "…"`, and
+expands `~` and environment variables. Everything else — `ls`, `git status`,
+`git commit`, `git worktree add`, test runs, `grillspec` itself — runs.
 
 **The gate is a guardrail, not a sandbox.** It cannot see a write hidden inside
 `python -c` or a script, and it does not try to. Its job is to stop drift, and the
@@ -49,24 +52,25 @@ router tells the agent never to work around it.
 
 ## Pausing the gate
 
-Only the user can pause it, from their own terminal:
+Only the user can pause it, from their own terminal; it asks for confirmation and
+refuses to run without a terminal:
 
 ```bash
 grillspec gate pause
 ```
 
-The pause covers the active change in its current phase, and ends by itself when the
-phase changes or another change becomes active. `grillspec gate resume` ends it early.
-The gate blocks the agent's own `grillspec gate pause`.
+The pause covers the active change in its current phase. It ends by itself at the
+next approval or when another change becomes active; `grillspec gate resume` ends it
+early. The gate blocks the agent's own `grillspec gate pause`, however it is quoted.
 
 ## Per harness
 
 | Harness | Hook | Notes |
 |---|---|---|
 | Claude Code | `PreToolUse` on `Write`, `Edit`, `MultiEdit`, `NotebookEdit`, `Bash`, `PowerShell` | Hooks run once the workspace is trusted. |
-| Codex | `PreToolUse` on `apply_patch` and `Bash` | Approve the plugin's hooks with `/hooks` after installing, and again after every plugin update; until then they do not run. |
+| Codex | `PreToolUse` on `apply_patch`, `Bash` and `exec_command` | Approve the plugin's hooks with `/hooks` after installing, and again after every plugin update; until then they do not run. |
 | Cursor | `preToolUse` on `Write`, `Delete`, `Shell` | Hooks run in trusted workspaces. |
-| Antigravity | `PreToolUse` on `write_to_file`, `replace_file_content`, `multi_replace_file_content`, `run_command` | Not yet smoke-tested. |
+| Antigravity | `PreToolUse` on `write_to_file`, `replace_file_content`, `multi_replace_file_content`, `run_command` | Shipped disabled (`"enabled": false` in the plugin's `hooks.json`): in IDE 2.5 a hook's `allow` means auto-approve, so the gate's "no opinion" could skip your approval prompts. It is turned on once a smoke test shows a safe answer. |
 | GigaCode | none | GigaCode's hooks are experimental and off by default; the skills are the gate there. |
 
 Every hook fails open: if Python is missing or anything goes wrong, the tool call runs.

@@ -317,6 +317,7 @@ def _approve(stage: str, executor: str | None = None) -> int:
         today=dt.datetime.now().astimezone().date(),
         executor=executor if Stage(stage) is Stage.PLAN else None,
     )
+    resume_gates(root)  # a pause lasts one phase; approval moves the phase on
     return _print(f"approved {stage} for {sidecar.stem}")
 
 
@@ -816,6 +817,15 @@ def _gate(action: str) -> int:
         where = status.change_id or "no change"
         msg = f"nothing to pause: {where} is in the {status.phase} phase"
         _ = sys.stderr.write(f"grillspec: {msg}\n")
+        return 1
+    if not sys.stdin.isatty():
+        _ = sys.stderr.write(
+            "grillspec: run grillspec gate pause in your own terminal; it asks first\n"
+        )
+        return 1
+    question = f"Pause the phase gate for {status.change_id} in {status.phase}? [y/N] "
+    if input(question).strip().lower() not in {"y", "yes"}:
+        _ = sys.stderr.write("grillspec: not paused\n")
         return 1
     pause_gates(root, status.change_id, str(status.phase))
     return _print(

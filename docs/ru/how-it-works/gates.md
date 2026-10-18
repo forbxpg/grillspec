@@ -19,9 +19,10 @@ shell и говорит агенту, что нужно закончить сн�
 
 | Разрешено | Почему |
 |---|---|
-| всё в `.grillspec/` | одобрения, sidecar-файлы и состояние |
+| `.grillspec/`, кроме `state.json`, `config.toml` и `changes/` | payload для council и прочие черновые файлы; одобрения, конфиг и состояние пишет только CLI |
 | OpenSpec: `openspec/changes/<id>/**` | proposal, design, дельты и tasks изменения |
 | superpowers: `docs/grillspec/specs/<id>.md` и `docs/grillspec/plans/<id>.md` | спек изменения (с журналом решений) и план |
+| `docs/grillspec/memory/` | подробная память, которая пишется после одобрения спека |
 | пути под glob из `gates.allow` | ваши исключения, например `["notes/*"]` |
 | всё за пределами проекта | это не код проекта |
 
@@ -38,10 +39,12 @@ grillspec gate: add-limits is in the spec phase, so only its spec artifacts may 
 
 Хук читает и команды shell и блокирует очевидную запись в неразрешённое место:
 перенаправление вывода (`>`, `>>`, `&>`; `/dev/null` можно), `tee`, `sed -i`, `perl -i`,
-`cp`, `mv`, `rm`, `touch`, `mkdir`, `ln`, `chmod`, команды git, меняющие файлы
-(`commit`, `checkout`, `restore`, `reset`, `stash`, `apply`, …), `apply_patch` из Codex и
-файловые командлеты PowerShell. Всё остальное — `ls`, `git status`, прогоны тестов, сам
-`grillspec` — выполняется.
+`cp`, `mv`, `rm`, `touch`, `mkdir`, `ln`, `chmod`, команды git, меняющие файлы рабочего
+дерева (`restore`, `apply`, `clean`, `checkout --`, `reset --hard`, `stash` кроме
+`list`/`show`, …), `apply_patch` из Codex, файловые командлеты PowerShell и их
+псевдонимы. Хук учитывает ведущий `cd dir &&`, заглядывает внутрь `bash -c "…"` и
+раскрывает `~` и переменные окружения. Всё остальное — `ls`, `git status`,
+`git commit`, `git worktree add`, прогоны тестов, сам `grillspec` — выполняется.
 
 **Ворота — это ограждение, а не песочница.** Запись, спрятанную в `python -c` или
 скрипт, они не видят и не пытаются. Их задача — остановить дрейф, а роутер велит
@@ -49,24 +52,26 @@ grillspec gate: add-limits is in the spec phase, so only its spec artifacts may 
 
 ## Пауза
 
-Поставить ворота на паузу может только пользователь, в своём терминале:
+Поставить ворота на паузу может только пользователь, в своём терминале; команда
+переспрашивает и без терминала не работает:
 
 ```bash
 grillspec gate pause
 ```
 
-Пауза действует для активного изменения в его текущей фазе и сама заканчивается,
-когда фаза меняется или активным становится другое изменение. `grillspec gate resume`
-снимает её раньше. Собственный `grillspec gate pause` агента ворота блокируют.
+Пауза действует для активного изменения в его текущей фазе. Она сама заканчивается
+при следующем одобрении или когда активным становится другое изменение;
+`grillspec gate resume` снимает её раньше. Собственный `grillspec gate pause` агента
+ворота блокируют, как бы он ни был закавычен.
 
 ## По харнессам
 
 | Харнесс | Хук | Заметки |
 |---|---|---|
 | Claude Code | `PreToolUse` на `Write`, `Edit`, `MultiEdit`, `NotebookEdit`, `Bash`, `PowerShell` | Хуки работают, когда папке выдано доверие. |
-| Codex | `PreToolUse` на `apply_patch` и `Bash` | Одобрите хуки плагина через `/hooks` после установки и снова после каждого обновления плагина; до этого они не работают. |
+| Codex | `PreToolUse` на `apply_patch`, `Bash` и `exec_command` | Одобрите хуки плагина через `/hooks` после установки и снова после каждого обновления плагина; до этого они не работают. |
 | Cursor | `preToolUse` на `Write`, `Delete`, `Shell` | Хуки работают в доверенных папках. |
-| Antigravity | `PreToolUse` на `write_to_file`, `replace_file_content`, `multi_replace_file_content`, `run_command` | Ещё не проверено smoke-тестом. |
+| Antigravity | `PreToolUse` на `write_to_file`, `replace_file_content`, `multi_replace_file_content`, `run_command` | Поставляется выключенным (`"enabled": false` в `hooks.json` плагина): в IDE 2.5 ответ хука `allow` означает автоодобрение, и «нет мнения» от ворот могло бы пропускать ваши запросы подтверждения. Включится, когда smoke-тест покажет безопасный ответ. |
 | GigaCode | нет | Хуки GigaCode экспериментальные и по умолчанию выключены; там воротами служат скиллы. |
 
 Каждый хук при сбое пропускает вызов: если нет Python или что-то пошло не так, инструмент

@@ -93,6 +93,8 @@ def _call(
 
     """
     if tool in _SHELLS[harness]:
+        named = (args.get(key) for key in ("cwd", "working_directory", "workdir"))
+        cwd = next((text for value in named if (text := _text(value))), cwd)
         command = _text(
             args.get("CommandLine" if harness is Harness.ANTIGRAVITY else "command")
         )

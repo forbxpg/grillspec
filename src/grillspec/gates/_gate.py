@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import fnmatch
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -13,7 +12,7 @@ from grillspec.config import Backend, load_config
 from grillspec.state import Phase, compute_status, gates_pause
 from grillspec.state._layout import OPENSPEC_CHANGES, PLANS, SPECS
 
-from ._shell import shell_targets
+from ._shell import pause_attempt, shell_targets
 
 if TYPE_CHECKING:
     from grillspec.config import Config
@@ -21,7 +20,9 @@ if TYPE_CHECKING:
 
 GATED = frozenset({Phase.GRILL, Phase.SPEC, Phase.PLAN})
 _SHORT = 80
-_PAUSE = re.compile(r"\bgrillspec\b.*\bgate\s+pause\b|\bgate\s+pause\b.*grillspec")
+# Only the CLI writes these: hand edits could approve, disable or pause the gate.
+_CLI_OWNED = (".grillspec/state.json", ".grillspec/config.toml", ".grillspec/changes/")
+MEMORY = "docs/grillspec/memory"
 _BYPASS = "To bypass, the user runs grillspec gate pause in their own terminal."
 PAUSE_REFUSAL = (
     "grillspec gate: only the user may pause gates; ask them to run "
@@ -94,7 +95,7 @@ def _artifacts(config: Config, change_id: str) -> tuple[list[str], list[str]]:
         tuple[list[str], list[str]] - Folder prefixes and exact files.
 
     """
-    folders = [".grillspec"]
+    folders = [".grillspec", MEMORY]
     if config.backend is Backend.OPENSPEC:
         return [*folders, (OPENSPEC_CHANGES / change_id).as_posix()], []
     files = [
@@ -117,6 +118,8 @@ def _allowed(rel: str, config: Config, change_id: str) -> bool:
 
     """
     fold = os.path.normcase
+    if any(fold(rel).startswith(fold(owned)) for owned in _CLI_OWNED):
+        return False
     folders, files = _artifacts(config, change_id)
     if any(fold(rel) == fold(name) for name in files):
         return True
@@ -150,9 +153,11 @@ def _subjects(root: Path, call: ToolCall) -> list[str] | None:
     if call.kind == "edit":
         paths = list(call.paths)
     else:
-        paths, unknown = shell_targets(call.command)
+        found, unknown = shell_targets(call.command)
         if unknown:
             return None
+        expanded = (str(Path(os.path.expandvars(path)).expanduser()) for path in found)
+        paths = [path for path in expanded if "$" not in path]  # unknown variable
     base = Path(call.cwd) if call.cwd else root
     absolute = (
         path if Path(path).is_absolute() else str(base / path) for path in paths
@@ -186,7 +191,7 @@ def _decide(root: Path, call: ToolCall) -> str | None:
     if gated is None:
         return None
     config, status = gated
-    if call.kind == "shell" and _PAUSE.search(call.command):
+    if call.kind == "shell" and pause_attempt(call.command):
         return PAUSE_REFUSAL
     if gates_pause(root) == (status.change_id, str(status.phase)):
         return None

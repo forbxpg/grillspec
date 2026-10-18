@@ -14,10 +14,18 @@ from grillspec.hooks import Harness
 from support import GATED_ID, phase_project
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 PREFIX = f"grillspec gate: {GATED_ID} is in the spec phase, "
 ARTIFACT = f"openspec/changes/{GATED_ID}/design.md"
+
+
+def _answer(text: str) -> Callable[[str], str]:
+    def reply(_prompt: str) -> str:
+        return text
+
+    return reply
 
 
 @pytest.fixture
@@ -217,8 +225,10 @@ def test_cli_hook_pre_tool_silent(
 
 
 def test_cli_gate_pause_and_resume(
-    spec: Path, capsys: pytest.CaptureFixture[str]
+    spec: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):  # GT-5
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", _answer("y"))
     assert main(["gate", "pause"]) == 0
     assert "paused" in capsys.readouterr().out
     assert not pre_tool(Harness.CLAUDE, _payload(Harness.CLAUDE, spec, "src/a.py"), {})

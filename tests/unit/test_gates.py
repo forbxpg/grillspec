@@ -56,7 +56,7 @@ def test_code_edit_refused_while_specifying(spec: Path):  # GT-1
     [
         f"openspec/changes/{ID}/design.md",
         f"openspec/changes/{ID}/specs/limits/spec.md",
-        ".grillspec/state.json",
+        ".grillspec/council/q1.json",
         f"src/../openspec/changes/{ID}/proposal.md",
     ],
 )
@@ -146,9 +146,9 @@ def test_shell_reads_allowed(
 
 
 def test_unknown_writer_target_refused(spec: Path):  # GT-4
-    line = _shell(spec, "git commit -qm wip")
+    line = _shell(spec, "git reset --hard")
     assert line is not None
-    assert "`git commit -qm wip` is outside them" in line
+    assert "`git reset --hard` is outside them" in line
 
 
 def test_pause_until_phase_changes(spec: Path):  # GT-5
@@ -212,10 +212,10 @@ def test_corrupt_state_is_no_opinion(spec: Path):  # GT-6
         ("X=1 sudo rm a", ["a"], False),
         ("true && echo y >> b.txt", ["b.txt"], False),
         ("cat <<EOF > notes.md\nhello\nEOF", ["notes.md"], False),
-        ("git commit -m x", [], True),
+        ("git restore a.py", [], True),
         ("git status", [], False),
         ("git diff --stat", [], False),
-        ("Set-Content -Path a.txt -Value x", [], True),
+        ("Set-Content -Path a.txt -Value x", ["a.txt"], False),
         ("grillspec status", [], False),
         ("python -c \"open('a', 'w')\"", [], False),
     ],
