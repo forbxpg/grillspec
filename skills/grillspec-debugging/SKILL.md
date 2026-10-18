@@ -209,7 +209,9 @@ You MUST complete each phase before proceeding to the next.
 
    **Discuss with your human partner before attempting more fixes**
 
-   This is NOT a failed hypothesis - this is a wrong architecture.
+   Three failed fixes mean your hypotheses were wrong, and a wrong architecture
+   becomes the leading one. Confirm it with evidence and with your human partner
+   before redesigning.
 
 ## Red Flags - STOP and Follow Process
 

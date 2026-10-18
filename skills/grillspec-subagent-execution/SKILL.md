@@ -111,6 +111,7 @@ digraph process {
     "Adjudicate each open finding" -> "Any load-bearing finding?";
     "Any load-bearing finding?" -> "Rule and continue; stop only if every path forward is a guess" [label="yes"];
     "Any load-bearing finding?" -> "Park findings in ledger with rulings" [label="no"];
+    "Rule and continue; stop only if every path forward is a guess" -> "Park findings in ledger with rulings";
     "Park findings in ledger with rulings" -> "Append completion to ledger, mark todo complete";
     "Append completion to ledger, mark todo complete" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
@@ -152,8 +153,10 @@ a ledger file, not only in todos.
 - The ledger is your recovery map: the commits it names exist in git even
   when your context no longer remembers creating them. After compaction,
   trust the ledger and `git log` over your own recollection.
-- `git clean -fdx` will destroy the workspace (it's git-ignored scratch); if
-  that happens, recover from `git log`.
+- `git clean -fdx` will destroy the workspace (it's git-ignored scratch). Git
+  cannot bring back the ledger, briefs or rulings: recover progress from the
+  plan's ticked boxes and `git log`, and re-ask your human partner about any
+  ruling you cannot reconstruct.
 
 Read the plan once, note its context and Global Constraints, and create a
 todo per task. If the plan names a Spec, read that too: the spec is the
@@ -494,8 +497,10 @@ whatever you got wrong. A ruling that dies with the workspace was a decision
 made in secret.
 
 When the final whole-branch review is clean and its fixes are merged,
-delete this plan's workspace (`rm -rf <workspace>`) — the git history is
-the record now. Sibling directories belong to other plans; leave them
+delete this change's workspace (`rm -rf <workspace>`) — the git history is
+the record now. This is the one deletion you do without asking: the
+workspace is this change's own scratch, and its rulings are already in your
+final message. Sibling directories belong to other plans; leave them
 alone.
 
 Use grillspec-finishing.

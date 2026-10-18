@@ -90,5 +90,6 @@ After you approve the plan, the agent asks how to execute it and recommends one:
 | `subagent` | a fresh implementer and a fresh reviewer for every task — most thorough |
 | `inline` | the agent executes every task itself, then one fresh reviewer checks the whole branch — cheapest |
 
-The choice is stored with the approval (`--executor`), and status names the executor's
-skill (see [How execution works](execution.md)).
+The choice is stored with the approval (`--executor`). When that executor's skill is
+installed, status names it (`execute the plan with <skill>`); otherwise it says
+`execute the plan` (see [How execution works](execution.md)).

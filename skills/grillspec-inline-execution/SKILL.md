@@ -208,8 +208,11 @@ read its output, and compare. Three outcomes:
 
 Commit as the plan's commit steps say, following the project's commit rules
 (its `AGENTS.md` or contributing guide decide the message format and whether
-attribution lines are allowed). A task that spans several commits
-is fine; BASE is what the review range is cut from, never `HEAD~1`.
+attribution lines are allowed). If the plan has no commit step, commit the
+task's changes anyway before `grillspec exec done`: the review range is cut
+from commits, so uncommitted work never reaches a reviewer. A task that spans
+several commits is fine; BASE is what the review range is cut from, never
+`HEAD~1`.
 
 ### 3. The completion contract
 

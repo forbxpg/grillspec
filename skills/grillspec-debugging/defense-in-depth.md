@@ -59,7 +59,9 @@ async function gitInit(directory: string) {
     const normalized = normalize(resolve(directory));
     const tmpDir = normalize(resolve(tmpdir()));
 
-    if (!normalized.startsWith(tmpDir)) {
+    // A prefix check would let /tmp-other pass for /tmp; compare path segments.
+    const inside = relative(tmpDir, normalized);
+    if (inside.startsWith('..') || isAbsolute(inside)) {
       throw new Error(
         `Refusing git init outside temp dir during tests: ${directory}`
       );
