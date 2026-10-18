@@ -283,10 +283,12 @@ def test_removed_requirement(root: Path, capsys: pytest.CaptureFixture[str]):
 
 
 def test_crlf_bytes_exact(root: Path):
-    _setup(root, living=LIVING.replace("\n", "\r\n"))
+    _setup(root)
+    path = root / "openspec/specs/auth/spec.md"
+    _ = path.write_bytes(LIVING.replace("\n", "\r\n").encode())  # no text-mode CRLF
     assert main(["archive"]) == 0
     expected = LIVING.replace("30 minutes", "15 minutes").replace(
         "31 minutes", "16 minutes"
     )
-    data = (root / "openspec/specs/auth/spec.md").read_bytes()
+    data = path.read_bytes()
     assert data == expected.replace("\n", "\r\n").encode()
