@@ -45,6 +45,7 @@ from grillspec.journal import (
     line,
     record_event,
 )
+from grillspec.journal._server import serve
 from grillspec.memory import (
     CATEGORIES,
     MAX_ENTRIES,
@@ -155,6 +156,17 @@ def _add_note(note: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_ui(ui: argparse.ArgumentParser) -> None:
+    """Add the ``ui`` options.
+
+    Args:
+        ui: argparse.ArgumentParser - The ``ui`` sub-parser.
+
+    """
+    _ = ui.add_argument("--port", type=int, default=0, help="0 picks a free port")
+    _ = ui.add_argument("--no-browser", action="store_true", help="only print the URL")
+
+
 def _add_recall(recall: argparse.ArgumentParser) -> None:
     """Add the ``recall`` arguments.
 
@@ -241,6 +253,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_tokens(commands.add_parser("tokens", help="estimate grillspec's context cost"))
     _add_note(commands.add_parser("note", help="write a session-memory note"))
     _add_recall(commands.add_parser("recall", help="search session memory"))
+    _add_ui(commands.add_parser("ui", help="open the session-memory viewer"))
     _ = commands.add_parser(
         "archive", help="archive the done active change"
     ).add_argument("--dry-run", action="store_true", help="only list it")
@@ -387,6 +400,24 @@ def _recall(args: argparse.Namespace) -> int:
         ]
         return _print(json.dumps(rows, ensure_ascii=False, indent=2))
     return _print("\n".join(line(e) for e in found) or "no matches")
+
+
+def _ui(*, port: int, open_browser: bool) -> int:
+    """Serve the session-memory viewer until Ctrl+C.
+
+    Args:
+        port: int - Port; 0 picks a free one.
+        open_browser: bool - Open the page in the default browser.
+
+    Returns:
+        int - Exit code: 1 when grillspec is not set up here.
+
+    """
+    root = _journal_root()
+    if root is None:
+        return 1
+    serve(root, port=port, open_browser=open_browser)
+    return 0
 
 
 def _plan_refusal(root: Path, backend: Backend) -> str | None:
@@ -1152,6 +1183,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "gate": lambda: _gate(cast("str", args.action)),
         "note": lambda: _note(cast("str", args.kind), cast("str", args.text)),
         "recall": lambda: _recall(args),
+        "ui": lambda: _ui(
+            port=cast("int", args.port), open_browser=not cast("bool", args.no_browser)
+        ),
         "tokens": lambda: _tokens(
             as_json=cast("bool", args.json),
             markdown=cast("bool", args.markdown),
