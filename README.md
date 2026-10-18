@@ -32,14 +32,16 @@ Then, in your project, ask the agent to "set up grillspec".
 
 ## Documentation
 
-- English: [docs/en](docs/en)
-- Русский: [docs/ru](docs/ru)
+- English: [docs/en](docs/en/README.md) — why each mechanism exists and how it works
+- Русский: [docs/ru](docs/ru/README.md)
+- Token costs: [docs/en/tokens.md](docs/en/tokens.md) — about 2,100 tokens per session
+  (measured), the rest only when a skill is used
 
 ## Status
 
-Pre-alpha: the foundation (configuration, phases, bootstrap, installer) is in place;
-the grilling, spec, plan and execution skills land step by step. See
-[CHANGELOG.md](CHANGELOG.md).
+Pre-alpha: grilling, council, specs, memory, plans, execution, archiving and phase
+gates are in place; release hardening (pressure tests, smoke runs on every harness)
+comes next. See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

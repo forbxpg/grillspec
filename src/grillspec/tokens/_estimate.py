@@ -140,28 +140,49 @@ def measure(data_root: Path, project: Path | None) -> Costs:
     return Costs(router, catalogue, memory, skills)
 
 
-def render_markdown(costs: Costs) -> str:
+_LABELS = {
+    "en": {
+        "head": "| Part | When it is loaded | ≈ tokens |",
+        "router": "router and status line",
+        "catalogue": "skill catalogue ({count} skills)",
+        "every": "every session",
+        "hooks": "every session (hook harnesses)",
+        "used": "when the skill is used",
+        "refs": "+{n} in references",
+    },
+    "ru": {
+        "head": "| Часть | Когда загружается | ≈ токенов |",
+        "router": "роутер и строка статуса",
+        "catalogue": "каталог скиллов ({count} скиллов)",
+        "every": "каждая сессия",
+        "hooks": "каждая сессия (харнессы, где есть хуки)",
+        "used": "когда скилл используется",
+        "refs": "+{n} в справочных файлах",
+    },
+}
+
+
+def render_markdown(costs: Costs, language: str = "en") -> str:
     """Render the cost table the docs embed.
 
     Args:
         costs: Costs - The estimates.
+        language: str - ``en`` or ``ru``.
 
     Returns:
         str - A Markdown table with LF newlines and no trailing newline.
 
     """
-    every = "every session"
-    count = len(costs.skills)
+    label = _LABELS[language]
+    catalogue = label["catalogue"].format(count=len(costs.skills))
     rows = [
-        "| Part | When it is loaded | ≈ tokens |",
+        label["head"],
         "|---|---|---|",
-        f"| router and status line | {every} (hook harnesses) | {costs.router:,} |",
-        f"| skill catalogue ({count} skills) | {every} | {costs.catalogue:,} |",
+        f"| {label['router']} | {label['hooks']} | {costs.router:,} |",
+        f"| {catalogue} | {label['every']} | {costs.catalogue:,} |",
     ]
-    rows.extend(
-        f"| `{s.name}` | when the skill is used | {s.body:,}"
-        + (f" (+{s.references:,} in references)" if s.references else "")
-        + " |"
-        for s in costs.skills
-    )
+    for skill in costs.skills:
+        refs = label["refs"].format(n=f"{skill.references:,}")
+        extra = f" ({refs})" if skill.references else ""
+        rows.append(f"| `{skill.name}` | {label['used']} | {skill.body:,}{extra} |")
     return "\n".join(rows)
