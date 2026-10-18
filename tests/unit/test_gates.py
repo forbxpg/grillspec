@@ -10,66 +10,22 @@ import pytest
 from grillspec.cli import main
 from grillspec.gates import ToolCall, decide, patch_paths, shell_targets
 from grillspec.state import gates_pause, pause_gates, resume_gates
-from support import write
+from support import GATED_ID, openspec_change, phase_project, write
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-ID = "add-limits"
+ID = GATED_ID
 OTHER = "add-other"
-WHY = "Webhook receivers are overwhelmed by bursts of deliveries from one sender."
-DELTA = """## ADDED Requirements
-
-### Requirement: Burst limit
-The sender SHALL reject a burst over the limit.
-
-#### Scenario: RL-1 burst exceeded
-- **WHEN** 11 deliveries arrive
-- **THEN** the eleventh is rejected
-"""
-PLAN = f"""# plan
-
-**Spec:** openspec/changes/{ID}/proposal.md
-
-## 1. Work
-
-- [ ] 1.1 Limit — verify: pytest passes
-
-Covers: RL-1 · Test: scenario-first
-
-Files: x
-"""
-PHASES = ("grill", "spec", "plan", "execute")
-
-
-def _change(root: Path, change_id: str, *, grilled: bool) -> None:
-    folder = root / "openspec/changes" / change_id
-    write(folder / "proposal.md", f"## Why\n\n{WHY}\n\n## What Changes\n\n- x\n")
-    write(folder / "design.md", "# Design\n\n## Decision log\n")
-    write(folder / "specs/limits/spec.md", DELTA)
-    sidecar = "version = 1\n" + ("grilled = 2026-10-17\n" if grilled else "")
-    write(root / f".grillspec/changes/{change_id}.toml", sidecar)
 
 
 def _project(root: Path, phase: str, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Build an OpenSpec project whose active change is in ``phase``.
-
-    Returns:
-        Path - The project root, now the working directory.
-
-    """
-    write(
-        root / ".grillspec/config.toml", 'version = 1\n[spec]\nbackend = "openspec"\n'
-    )
-    _change(root, ID, grilled=phase != "grill")
-    write(root / ".grillspec/state.json", f'{{"version": 1, "active": "{ID}"}}\n')
     monkeypatch.chdir(root)
-    if PHASES.index(phase) >= PHASES.index("plan"):
-        assert main(["approve", "spec"]) == 0
-    if phase == "execute":
-        write(root / "openspec/changes" / ID / "tasks.md", PLAN)
-        assert main(["approve", "plan"]) == 0
-    return root
+    return phase_project(root, phase)
+
+
+def _change(root: Path, change_id: str, *, grilled: bool) -> None:
+    openspec_change(root, change_id, grilled=grilled)
 
 
 def _edit(root: Path, relative: str) -> str | None:

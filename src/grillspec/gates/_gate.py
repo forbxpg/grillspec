@@ -38,12 +38,14 @@ class ToolCall:
         paths: tuple[str, ...] - Files an edit touches, absolute or relative to
             the project root.
         command: str - The shell command line.
+        cwd: str - Directory relative paths start from; the root when empty.
 
     """
 
     kind: Literal["edit", "shell"]
     paths: tuple[str, ...] = ()
     command: str = ""
+    cwd: str = ""
 
 
 def _norm(path: str) -> str:
@@ -151,7 +153,11 @@ def _subjects(root: Path, call: ToolCall) -> list[str] | None:
         paths, unknown = shell_targets(call.command)
         if unknown:
             return None
-    relative = (_relative(root, path) for path in paths)
+    base = Path(call.cwd) if call.cwd else root
+    absolute = (
+        path if Path(path).is_absolute() else str(base / path) for path in paths
+    )
+    relative = (_relative(root, path) for path in absolute)
     return [rel for rel in relative if rel is not None]
 
 

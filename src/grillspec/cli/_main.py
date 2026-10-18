@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -32,6 +33,7 @@ from grillspec.execute import (
     start_task,
     workspace,
 )
+from grillspec.gates import GATED, pre_tool
 from grillspec.hooks import Harness, render_session_start, session_context
 from grillspec.init import init_project
 from grillspec.install import InstallConflictError, Scope, install, uninstall
@@ -61,7 +63,9 @@ from grillspec.state import (
     compute_status,
     create_change,
     list_changes,
+    pause_gates,
     plan_path,
+    resume_gates,
     set_active,
 )
 
@@ -150,7 +154,7 @@ def _build_parser() -> argparse.ArgumentParser:
     use = commands.add_parser("use", help="make a change the active one")
     _ = use.add_argument("change_id", help="id of an existing change")
     hook = commands.add_parser("hook", help="entry point for harness hooks")
-    _ = hook.add_argument("event", choices=["session-start"])
+    _ = hook.add_argument("event", choices=["session-start", "pre-tool"])
     _ = hook.add_argument(
         "--harness",
         required=True,
@@ -171,6 +175,9 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_council(commands.add_parser("council", help="ask external agent CLIs"))
     _add_memory(commands.add_parser("memory", help="project memory in AGENTS.md"))
     _add_exec(commands.add_parser("exec", help="helpers that execute the plan"))
+    _ = commands.add_parser("gate", help="pause or resume the phase gate").add_argument(
+        "action", choices=["pause", "resume"]
+    )
     _ = commands.add_parser(
         "archive", help="archive the done active change"
     ).add_argument("--dry-run", action="store_true", help="only list it")
@@ -763,21 +770,57 @@ def _detect(*, as_json: bool) -> int:
     return 0
 
 
-def _hook(harness: str) -> int:
-    """Print the session-start payload for a harness; never fails.
+def _hook(event: str, harness: str) -> int:
+    """Answer a harness hook; never fails.
 
     Args:
+        event: str - ``session-start`` or ``pre-tool`` (reads the payload on stdin).
         harness: str - Harness name.
 
     Returns:
         int - Always 0: hooks are fail-open.
 
     """
+    if event == "pre-tool":
+        try:
+            stdin = sys.stdin.buffer.read()
+        except (OSError, ValueError):
+            stdin = b""
+        answer = pre_tool(Harness(harness), stdin, os.environ)
+        if answer:
+            _ = sys.stdout.write(answer + "\n")
+        return 0
     payload = render_session_start(
         Harness(harness), session_context(project_root(Path.cwd()))
     )
     _ = sys.stdout.write(payload + "\n")
     return 0
+
+
+def _gate(action: str) -> int:
+    """Pause or resume the phase gate for the active change.
+
+    Args:
+        action: str - ``pause`` or ``resume``.
+
+    Returns:
+        int - Exit code: 1 when there is nothing to pause.
+
+    """
+    root = project_root(Path.cwd())
+    if action == "resume":
+        resume_gates(root)
+        return _print("gates resumed")
+    status = compute_status(root, load_config(root).config)
+    if status.change_id is None or status.phase not in GATED:
+        where = status.change_id or "no change"
+        msg = f"nothing to pause: {where} is in the {status.phase} phase"
+        _ = sys.stderr.write(f"grillspec: {msg}\n")
+        return 1
+    pause_gates(root, status.change_id, str(status.phase))
+    return _print(
+        f"gates paused for {status.change_id} while it is in the {status.phase} phase"
+    )
 
 
 def _status(*, as_json: bool) -> int:
@@ -865,7 +908,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "version": lambda: _print(__version__),
         "status": lambda: _status(as_json=cast("bool", args.json)),
         "use": lambda: _use(cast("str", args.change_id)),
-        "hook": lambda: _hook(cast("str", args.harness)),
+        "hook": lambda: _hook(cast("str", args.event), cast("str", args.harness)),
+        "gate": lambda: _gate(cast("str", args.action)),
         "init": lambda: _init(
             cast("str", args.backend), dry_run=cast("bool", args.dry_run)
         ),
