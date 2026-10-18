@@ -68,7 +68,8 @@ Before the tag, on the release branch:
 2. CI is green, and locally `claude plugin validate --strict .` passes.
 3. Pressure evals: `claude plugin eval . --eval-dir tests/evals --scaffold --tag pressure
    --ablation none --no-publish --trust-plugin --allow-tools Edit Write`. Every case
-   averages at least 0.8; record the scores in the release PR.
+   averages at least 0.8; record the scores in the release PR description before
+   it is merged.
 4. Smoke runs: `tests/smoke/smoke.sh` and `tests/smoke/smoke_gates.sh` for Claude Code
    and Cursor must PASS; every other harness gets a dated row in
    `tests/smoke/README.md` saying why it was not run.
