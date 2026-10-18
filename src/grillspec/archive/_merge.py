@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import NoReturn
 
@@ -11,7 +12,7 @@ from grillspec.markdown import numbered_outside
 _BREAK = re.compile(r"(\r\n|\r|\n)")
 _REQ = re.compile(r"^### Requirement:\s*(.*?)\s*$")
 _SECTION = re.compile(r"^## (?!#)(.+?)\s*$")
-_SCENARIO = re.compile(r"^#### Scenario:\s*(.*?)\s*$")
+_HEADING = re.compile(r"^#### (?!#)\s*(?:Scenario:)?\s*(.*?)\s*$")
 _RENAME = re.compile(
     r"^\s*[-*]?\s*(FROM|TO):\s*`?\s*#{0,3}\s*(?:Requirement:)?\s*(.*?)\s*`?\s*$"
 )
@@ -180,17 +181,19 @@ def parse_delta(
     return found, renames, purpose
 
 
-def _scenarios(block: list[str]) -> set[str]:
-    """Return the scenario names in a requirement block.
+def _headings(block: list[str]) -> Counter[str]:
+    """Count the level-4 headings of a requirement block, outside fences.
 
     Args:
         block: list[str] - Block lines.
 
     Returns:
-        set[str] - Trimmed scenario names.
+        Counter[str] - Trimmed heading text (without ``Scenario:``) per occurrence.
 
     """
-    return {m.group(1) for line in block if (m := _SCENARIO.match(line))}
+    return Counter(
+        m.group(1) for _, line in numbered_outside(block) if (m := _HEADING.match(line))
+    )
 
 
 def _ensure_blank(block: list[str]) -> list[str]:
@@ -238,7 +241,7 @@ class _Merge:
         if new in self.blocks:
             self.refuse(f"RENAMED target '{new}' already exists")
         lines = list(self.blocks.pop(old))
-        lines[0] = lines[0].replace(old, new, 1)
+        lines[0] = f"### Requirement: {new}"
         self.blocks[new] = lines
         self.names[self.names.index(old)] = new
         self.ops.append(f"{self.capability}: rename '{old}' → '{new}'")
@@ -253,13 +256,13 @@ class _Merge:
         self.ops.append(f"{self.capability}: remove '{name}'")
 
     def modify(self, name: str, block: list[str]) -> None:
-        """Replace a requirement, refusing when a living scenario would be lost."""
+        """Replace a requirement, refusing when a living heading would be lost."""
         if name not in self.blocks:
             self.refuse(f"MODIFIED '{name}' is not in the living spec")
-        missing = sorted(_scenarios(self.blocks[name]) - _scenarios(block))
+        missing = sorted((_headings(self.blocks[name]) - _headings(block)).keys())
         if missing:
             lost = ", ".join(f"'{m}'" for m in missing)
-            self.refuse(f"MODIFIED '{name}' drops scenario(s) {lost}")
+            self.refuse(f"MODIFIED '{name}' drops heading(s) {lost}")
         self.blocks[name] = _ensure_blank(block)
         self.ops.append(f"{self.capability}: modify '{name}'")
 
@@ -289,7 +292,18 @@ def apply_delta(
     Returns:
         tuple[Blocks, list[str]] - The new spec and one line per operation.
 
+    Raises:
+        MergeError: If the living spec repeats a requirement name, or a delta
+            cannot be applied.
+
     """
+    repeated = sorted(
+        n for n, k in Counter(n for n, _ in living.blocks).items() if k > 1
+    )
+    if repeated:
+        names = ", ".join(f"'{n}'" for n in repeated)
+        msg = f"{capability}: the living spec repeats requirement(s) {names}"
+        raise MergeError(msg)
     merge = _Merge(capability, [n for n, _ in living.blocks], dict(living.blocks))
     for old, new in renames:
         merge.rename(old, new)
@@ -318,7 +332,7 @@ def new_spec(capability: str, purpose: str, change_id: str) -> Blocks:
     placeholder = f"TBD - created by archiving change {change_id}."
     text = purpose or f"{placeholder} Update Purpose after archive."
     head = [
-        f"# {capability.rsplit('/', maxsplit=1)[-1]} Specification",
+        f"# {capability} Specification",
         "",
         "## Purpose",
         "",

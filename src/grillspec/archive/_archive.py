@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import shutil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from grillspec.config import Backend
 from grillspec.council import resolve_cli, run_tree
@@ -13,6 +13,7 @@ from grillspec.state import (
     Phase,
     clear_active,
     compute_status,
+    list_changes,
     mark_archived,
 )
 
@@ -117,6 +118,90 @@ def _plan_merge(root: Path, change_id: str) -> tuple[dict[Path, str], list[str]]
     return writes, ops
 
 
+def _last_line(*streams: bytes) -> str:
+    """Return the last non-empty line of the first stream that has one.
+
+    Args:
+        *streams: bytes - Process output, most telling first.
+
+    Returns:
+        str - That line, or ``no output``.
+
+    """
+    for stream in streams:
+        lines = stream.decode("utf-8", "replace").strip().splitlines()
+        if lines:
+            return lines[-1].strip()
+    return "no output"
+
+
+def _run_openspec(root: Path, cli: str, change_id: str, target: Path) -> list[str]:
+    """Archive through the OpenSpec CLI and check that it moved the change.
+
+    Args:
+        root: Path - Project root.
+        cli: str - The OpenSpec executable.
+        change_id: str - Change id.
+        target: Path - Where the change folder must end up.
+
+    Returns:
+        list[str] - The command, then the CLI's own output lines.
+
+    Raises:
+        ArchiveError: If the CLI fails, or leaves the change folder in place.
+
+    """
+    argv = [cli, "archive", change_id, "--yes"]
+    try:
+        done = run_tree(argv, stdin=None, timeout=_TIMEOUT, cwd=root)
+    except OSError as error:
+        msg = f"openspec archive failed: {error.strerror or error}"
+        raise ArchiveError(msg) from None
+    if done.returncode != 0:
+        msg = f"openspec archive failed: {_last_line(done.stderr, done.stdout)}"
+        raise ArchiveError(msg)
+    source = root.joinpath(*CHANGES, change_id)
+    if source.exists() or not target.is_dir():
+        where = source.relative_to(root).as_posix()
+        msg = f"openspec archive exited 0 but {where} is still there"
+        raise ArchiveError(msg)
+    output = done.stdout.decode("utf-8", "replace").splitlines()
+    return [f"openspec archive {change_id} --yes", *(x for x in output if x.strip())]
+
+
+def _write_all(writes: dict[Path, str], source: Path, target: Path) -> None:
+    """Write every living spec, then move the change; undo all on failure.
+
+    Args:
+        writes: dict[Path, str] - New text per living spec file.
+        source: Path - The change folder.
+        target: Path - Its archive folder.
+
+    Raises:
+        ArchiveError: If a write or the move fails; the files written before it
+            are restored and new ones removed.
+
+    """
+    before = {path: path.read_bytes() if path.is_file() else None for path in writes}
+    written: list[Path] = []
+    try:
+        for path, text in writes.items():
+            written.append(path)
+            write_atomic(path, text)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _ = shutil.move(str(source), str(target))
+    except OSError as error:
+        for path in written:
+            original = before[path]
+            if original is None:
+                path.unlink(missing_ok=True)
+            else:
+                _ = path.write_bytes(original)
+        name = cast("str | None", error.filename) or source
+        msg = f"archive failed, nothing changed: {error.strerror or error}: {name}"
+        raise ArchiveError(msg) from None
+
+
 def _archive_openspec(
     root: Path, change_id: str, *, today: dt.date, dry_run: bool
 ) -> list[str]:
@@ -144,28 +229,24 @@ def _archive_openspec(
     if target.exists():
         msg = f"{target.relative_to(root).as_posix()} already exists"
         raise ArchiveError(msg)
+    move = f"move to {target.relative_to(root).as_posix()}"
     cli = _openspec_cli()
-    writes, ops = _plan_merge(root, change_id)
-    if cli is not None:
-        ops = [f"openspec archive {change_id} --yes", *ops]
-    ops.append(f"move to {target.relative_to(root).as_posix()}")
-    if dry_run:
+    if cli is not None and not dry_run:
+        ops = _run_openspec(root, cli, change_id, target)
+        clear_active(root)
         return ops
     if cli is not None:
-        argv = [cli, "archive", change_id, "--yes"]
-        done = run_tree(argv, stdin=None, timeout=_TIMEOUT, cwd=root)
-        if done.returncode != 0:
-            tail = done.stderr.decode("utf-8", "replace").strip().splitlines()
-            msg = f"openspec archive failed: {tail[-1] if tail else 'no output'}"
-            raise ArchiveError(msg)
-        clear_active(root)
-        return ops[:1]
-    for path, text in writes.items():
-        write_atomic(path, text)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    _ = shutil.move(str(root.joinpath(*CHANGES, change_id)), str(target))
+        try:
+            preview = _plan_merge(root, change_id)[1]
+        except ArchiveError as error:
+            preview = [f"note: grillspec's own preview of the merge failed: {error}"]
+        return [f"openspec archive {change_id} --yes", *preview, move]
+    writes, ops = _plan_merge(root, change_id)
+    if dry_run:
+        return [*ops, move]
+    _write_all(writes, root.joinpath(*CHANGES, change_id), target)
     clear_active(root)
-    return ops
+    return [*ops, move]
 
 
 def archive_change(
@@ -188,11 +269,20 @@ def archive_change(
 
     """
     status = compute_status(root, config)
-    if status.change_id is None or status.phase is not Phase.DONE:
+    backend = config.backend
+    if status.change_id is None or backend is None:
+        msg = f"no active change: {status.next_step}"
+        raise ArchiveError(msg)
+    if status.phase is not Phase.DONE:
         msg = f"the change is not done: {status.next_step}"
         raise ArchiveError(msg)
     change_id = status.change_id
-    if config.backend is Backend.SUPERPOWERS:
+    change = next(c for c in list_changes(root, backend) if c.id == change_id)
+    for stale, what in ((change.spec_stale, "spec"), (change.plan_stale, "plan")):
+        if stale:
+            msg = f"the {what} changed since approval: run grillspec approve {what}"
+            raise ArchiveError(msg)
+    if backend is Backend.SUPERPOWERS:
         if not dry_run:
             _ = mark_archived(root, change_id, today=today)
             clear_active(root)

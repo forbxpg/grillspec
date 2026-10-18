@@ -28,12 +28,15 @@ Purpose and the added requirements. The change folder then moves to
 `openspec/changes/archive/<date>-<id>/`.
 
 The archive refuses — and writes nothing at all — when a renamed requirement is
-missing or its new name is taken, a modified or added requirement does not fit, or a
-MODIFIED block would drop a scenario the living requirement has (copy it into the
-delta). Validator errors and an existing archive folder also stop it.
+missing or its new name is taken, a modified or added requirement does not fit, a
+MODIFIED block would drop a scenario or any other `####` heading the living
+requirement has (copy it into the delta), or a living spec repeats a requirement name.
+Validator errors and an existing archive folder also stop it. If a write or the move
+fails midway, the files already written are restored.
 
 If the OpenSpec CLI is installed and runs, grillspec hands the archive to
-`openspec archive <id> --yes`; otherwise its bundled archive applies the same rules.
+`openspec archive <id> --yes`, shows its output, and checks that the change folder
+moved; otherwise its bundled archive applies the same rules.
 
 ## Superpowers changes
 

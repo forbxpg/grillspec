@@ -155,6 +155,7 @@ def test_nothing_written_on_conflict(  # AR-3
             "#### Scenario: AU-1 idle session", "#### Scenario: AU-1 idle"
         ),
     )
+    assert main(["approve", "spec"]) == 0
     before = {p: p.read_bytes() for p in (openspec / "openspec").rglob("*.md")}
     _ = capsys.readouterr()
     assert main(["archive"]) == 1
@@ -179,7 +180,7 @@ def test_dry_run_changes_nothing(  # AR-5
 def test_openspec_cli_used_when_it_runs(openspec: Path, bin_dir: Path, tmp_path: Path):
     record = tmp_path / "rec.jsonl"
     _ = make_fake(bin_dir, "openspec", stdout="1.12.0\n", record=record)
-    assert main(["archive"]) == 0
+    assert main(["archive"]) == 1  # the fake leaves the change folder in place
     argvs = [call["argv"] for call in records(record)]
     assert ["archive", ID, "--yes"] in argvs
     living = (openspec / "openspec/specs/auth/spec.md").read_text(encoding="utf-8")
@@ -214,10 +215,15 @@ def test_crlf_living_spec_kept_outside_blocks(openspec: Path):  # Review Focus 1
         ),
     ],
 )
-def test_bad_rename_refused(openspec: Path, delta: str):  # Review Focus 2
+def test_bad_rename_refused(  # Review Focus 2
+    openspec: Path, delta: str, capsys: pytest.CaptureFixture[str]
+):
     write(openspec / "openspec/changes" / ID / "specs/auth/spec.md", delta)
+    assert main(["approve", "spec"]) == 0
     before = (openspec / "openspec/specs/auth/spec.md").read_bytes()
+    _ = capsys.readouterr()
     assert main(["archive"]) == 1
+    assert "RENAMED" in capsys.readouterr().err
     assert (openspec / "openspec/specs/auth/spec.md").read_bytes() == before
 
 
@@ -235,6 +241,7 @@ def test_nested_capability_created(openspec: Path):  # Review Focus 5
     (folder / "limits/spec.md").rename(folder / "limits.md")
     write(folder / "net/limits/spec.md", NEW_CAP)
     (folder / "limits.md").unlink()
+    assert main(["approve", "spec"]) == 0
     assert main(["archive"]) == 0
     assert (openspec / "openspec/specs/net/limits/spec.md").is_file()
 
