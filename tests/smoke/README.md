@@ -33,5 +33,5 @@ agent saw the `grillspec gate:` refusal.
 |---|---|---|---|---|
 | 2026-10-18 | Claude Code | 2.1.287 (Claude Code) | PASS | `--permission-mode acceptEdits` |
 | 2026-10-18 | Codex | — | not run | not wired yet; needs `/hooks` approval |
-| 2026-10-18 | Cursor | — | not run | `cursor-agent` not logged in here |
-| 2026-10-18 | Antigravity | — | not run | `agy` not installed |
+| 2026-10-18 | Cursor | — | not run | not wired into the script yet |
+| 2026-10-18 | Antigravity | — | not run | not wired into the script yet |
