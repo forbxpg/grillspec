@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+import sys
 from pathlib import Path
 
 GATED_ID = "add-limits"
@@ -76,4 +78,21 @@ def phase_project(root: Path, phase: str) -> Path:
     if phase == "execute":
         _ = write(root / "openspec/changes" / GATED_ID / "tasks.md", _PLAN)
         assert main(["approve", "plan"]) == 0
+    return root
+
+
+REPO = Path(__file__).resolve().parents[1]
+WINDOWS = sys.platform == "win32"
+
+
+def plugin_copy(tmp_path: Path) -> Path:
+    """Copy the plugin's runtime folders to a path with a space in it.
+
+    Returns:
+        Path - The copy's root.
+
+    """
+    root = tmp_path / "plugin root"  # a space, like "Program Files"
+    for name in ("hooks", "scripts", "skills", "src", "templates"):
+        _ = shutil.copytree(REPO / name, root / name)
     return root

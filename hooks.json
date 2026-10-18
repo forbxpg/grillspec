@@ -6,5 +6,18 @@
         "command": "./hooks/run-hook.cmd session-start antigravity"
       }
     ]
+  },
+  "grillspec-gate": {
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content|run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/run-hook.cmd pre-tool antigravity"
+          }
+        ]
+      }
+    ]
   }
 }

@@ -9,12 +9,17 @@ from typing import TYPE_CHECKING
 
 from grillspec.config import load_config
 from grillspec.paths import data_root
-from grillspec.state import compute_status
+from grillspec.state import Phase, compute_status, gates_pause
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from grillspec.config import Config
+    from grillspec.state import Status
+
 ROUTER = "using-grillspec"
+# The phases grillspec.gates guards (kept here: gates imports this module).
+_GATED = frozenset({Phase.GRILL, Phase.SPEC, Phase.PLAN})
 
 
 class Harness(StrEnum):
@@ -58,6 +63,27 @@ def cli_command() -> str:
     return f'sh "{launcher}"'
 
 
+def _gates_line(root: Path, config: Config, status: Status) -> list[str]:
+    """Say that phase gates are on, when they are.
+
+    Args:
+        root: Path - Project root.
+        config: Config - Effective configuration.
+        status: Status - Current status.
+
+    Returns:
+        list[str] - One line while the gate guards the active change, else none.
+
+    """
+    change = status.change_id
+    if not config.gates_enabled or change is None or status.phase not in _GATED:
+        return []
+    if gates_pause(root) == (change, str(status.phase)):
+        return []
+    until = "until the plan is approved"
+    return [f"gates: on — edits outside {change}'s artifacts are blocked {until}"]
+
+
 def session_context(root: Path) -> str:
     """Build what a session should know about grillspec when it starts.
 
@@ -81,6 +107,7 @@ def session_context(root: Path) -> str:
         loaded = load_config(root)
         status = compute_status(root, loaded.config)
         parts.append(f"{status.line()}\ngrillspec CLI: {cli_command()} <command>")
+        parts.extend(_gates_line(root, loaded.config, status))
         warnings.extend((*loaded.warnings, *status.warnings))
     except Exception as error:  # ruff: ignore[blind-except] - a hook must never fail the session
         warnings.append(f"grillspec bootstrap failed: {type(error).__name__}: {error}")
