@@ -27,7 +27,7 @@ if cfg["record"]:
                              "child_pid": child, "probe": probe, "pid": os.getpid(),
                              "files": sorted(os.listdir("."))}}) + "\n")
 if probe:
-    sys.stdout.write(cfg["probe_stdout"])
+    sys.stdout.buffer.write(cfg["probe_stdout"].encode("utf-8"))
     sys.exit(cfg["probe_exit"])
 time.sleep(cfg["sleep"])
 sys.stdout.buffer.write(cfg["stdout"].encode("utf-8", "surrogateescape"))
