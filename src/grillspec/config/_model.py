@@ -106,6 +106,8 @@ class Config:
         council_share_project: bool - Run external members in the project
             directory instead of an empty temporary one.
         gates_enabled: bool - Whether phase gates are active.
+        gates_allow: tuple[str, ...] - Extra ``fnmatch`` globs, relative to the
+            project root, that gates let the agent edit.
 
     """
 
@@ -118,3 +120,4 @@ class Config:
     council_timeout: int = 120
     council_share_project: bool = False
     gates_enabled: bool = True
+    gates_allow: tuple[str, ...] = ()

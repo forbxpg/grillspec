@@ -186,6 +186,7 @@ _SCHEMA: dict[str, tuple[str, Callable[[object, str], object]]] = {
     "council.timeout": ("council_timeout", _timeout),
     "council.share_project": ("council_share_project", _boolean),
     "gates.enabled": ("gates_enabled", _boolean),
+    "gates.allow": ("gates_allow", _strings),
 }
 
 
