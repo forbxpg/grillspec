@@ -97,6 +97,15 @@ its artifacts. A blocked edit means: finish the phase first. Never work around a
 with another tool or a shell trick; if the user wants to skip it, they run
 `grillspec gate pause` in their own terminal.
 
+## Session memory
+
+Your session-start context holds a `grillspec memory:` brief: where the last session
+stopped. If it is missing (GigaCode), run `grillspec recall --brief` once. Write a note
+the moment you learn something: `grillspec note discovery|blocker|todo -- "<one line>"`.
+Before the session ends, write `grillspec note handoff -- "done: …; next: …; open: …"`.
+Look further back with `grillspec recall <words>`; close a blocker or todo that no
+longer stands with `grillspec recall --resolve <id>`.
+
 ## Red flags
 
 | Thought | Reality |

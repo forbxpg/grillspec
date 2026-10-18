@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grillspec memory</title>
+<style nonce="{{NONCE}}">
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --text: #1d1f23; --muted: #6b6f76; --line: #e6e6e1;
+  --accent: #f97316; --accent-soft: #fff1e6;
+  --event: #64748b; --handoff: #2563eb; --discovery: #059669; --blocker: #dc2626; --todo: #a16207;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171b; --panel: #1d2026; --text: #e8e9eb; --muted: #9aa0a8; --line: #2c3038;
+    --accent: #fb923c; --accent-soft: #3a2616;
+    --event: #94a3b8; --handoff: #60a5fa; --discovery: #34d399; --blocker: #f87171; --todo: #facc15;
+    --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+header {
+  position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line);
+  padding: 14px 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+}
+.brand { font-weight: 700; letter-spacing: .2px; display: flex; gap: 10px; align-items: center; }
+.brand .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.project { color: var(--muted); font-weight: 500; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--panel); font-size: 13px; color: var(--muted); }
+.chip b { color: var(--text); font-weight: 600; }
+.search { margin-left: auto; flex: 1 1 260px; max-width: 420px; }
+.search input { width: 100%; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); font: inherit; outline: none; }
+.search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; padding: 24px; max-width: 1200px; margin: 0 auto; }
+@media (max-width: 860px) { main { grid-template-columns: 1fr; } aside { order: -1; } }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.filters button { cursor: pointer; font: inherit; font-size: 13px; padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+.filters button[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.session { margin-bottom: 22px; }
+.session h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.entry { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); align-items: start; }
+.entry:first-child { border-top: 0; }
+.entry.pinned { background: linear-gradient(90deg, var(--accent-soft), transparent 40%); }
+.kind { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 6px; justify-self: start; border: 1px solid currentColor; }
+.kind.event { color: var(--event); } .kind.handoff { color: var(--handoff); } .kind.discovery { color: var(--discovery); }
+.kind.blocker { color: var(--blocker); } .kind.todo { color: var(--todo); }
+.text { white-space: pre-wrap; word-break: break-word; }
+.entry.resolved .text { color: var(--muted); text-decoration: line-through; }
+.meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.actions { display: flex; gap: 4px; opacity: .55; }
+.entry:hover .actions, .actions:focus-within { opacity: 1; }
+.actions button { cursor: pointer; border: 0; background: transparent; color: var(--muted); font-size: 16px; line-height: 1; padding: 4px 6px; border-radius: 6px; }
+.actions button:hover { background: var(--bg); color: var(--text); }
+.actions button.on { color: var(--accent); }
+aside .card { padding: 14px 16px; margin-bottom: 16px; }
+aside h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.change { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 14px; }
+.change:first-of-type { border-top: 0; }
+.change.active { font-weight: 600; }
+.phase { font-size: 12px; color: var(--muted); }
+.empty { color: var(--muted); padding: 28px; text-align: center; }
+.error { color: var(--blocker); }
+kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="dot"></span>grillspec memory <span class="project" id="project"></span></div>
+  <span class="chip" id="active"></span>
+  <div class="search"><input id="q" type="search" placeholder="Search notes and events  ( / )" autocomplete="off"></div>
+</header>
+<main>
+  <section>
+    <div class="filters" id="filters"></div>
+    <div id="timeline"><div class="empty">Loading…</div></div>
+  </section>
+  <aside>
+    <div class="card"><h2>Pinned</h2><div id="pinned" class="meta">Nothing pinned.</div></div>
+    <div class="card"><h2>Changes</h2><div id="changes" class="meta">No changes yet.</div></div>
+    <div class="card meta">Notes come from <kbd>grillspec note</kbd>; events from approvals, finished tasks and archives. Secrets are redacted before storage.</div>
+  </aside>
+</main>
+<script nonce="{{NONCE}}">
+(() => {
+  "use strict";
+  const params = new URLSearchParams(location.search);
+  let token = params.get("t") || "";
+  try {
+    if (token) { sessionStorage.setItem("grillspec-token", token); history.replaceState(null, "", location.pathname); }
+    else { token = sessionStorage.getItem("grillspec-token") || ""; }
+  } catch (_) { /* storage blocked: keep the in-memory token */ }
+  const KINDS = ["handoff", "discovery", "blocker", "todo", "event"];
+  const SESSION_GAP_MS = 2 * 60 * 60 * 1000;
+  const shown = new Set(KINDS);
+  let entries = [];
+  let card = null;
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
+
+  async function api(path, body) {
+    const opts = { headers: { "X-Grillspec-Token": token } };
+    if (body) { opts.method = "POST"; opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+    const res = await fetch(path, opts);
+    if (!res.ok) throw new Error(res.status === 403 ? "Access denied: open the link grillspec ui printed." : `Request failed (${res.status})`);
+    return res.json();
+  }
+
+  function when(ts) {
+    const d = new Date(ts);
+    return { day: d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
+             time: d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) };
+  }
+
+  function entryNode(e) {
+    const row = el("div", "entry" + (e.pinned ? " pinned" : "") + (e.resolved ? " resolved" : ""));
+    row.append(el("span", "kind " + e.kind, e.kind));
+    const body = el("div");
+    body.append(el("div", "text", e.text));
+    const t = when(e.ts);
+    body.append(el("div", "meta", `#${e.id} · ${t.time}` + (e.change ? ` · ${e.change}` : "")));
+    row.append(body);
+    const actions = el("div", "actions");
+    const pin = el("button", e.pinned ? "on" : "", e.pinned ? "★" : "☆");
+    pin.title = e.pinned ? "Unpin" : "Pin: always in the brief";
+    pin.addEventListener("click", () => act(e.pinned ? "/api/unpin" : "/api/pin", e.id));
+    const del = el("button", "", "✕");
+    del.title = "Delete for good";
+    del.addEventListener("click", () => { if (confirm(`Delete #${e.id} for good?`)) act("/api/forget", e.id); });
+    actions.append(pin);
+    if ((e.kind === "blocker" || e.kind === "todo") && !e.resolved) {
+      const done = el("button", "", "✓");
+      done.title = "Resolve: leaves the brief's open list";
+      done.addEventListener("click", () => act("/api/resolve", e.id));
+      actions.append(done);
+    }
+    actions.append(del);
+    row.append(actions);
+    return row;
+  }
+
+  function renderTimeline(searching) {
+    const box = $("timeline");
+    box.replaceChildren();
+    const visible = entries.filter((e) => shown.has(e.kind));
+    if (!visible.length) { box.append(el("div", "card empty", searching ? "No matches." : "Nothing recorded yet.")); return; }
+    if (searching) {  // best matches first: no session grouping
+      const session = el("div", "session");
+      session.append(el("h3", "", `Matches · ${visible.length}`));
+      card = el("div", "card");
+      for (const e of visible) card.append(entryNode(e));
+      session.append(card);
+      box.append(session);
+      return;
+    }
+    let last = null;
+    for (const e of visible) {
+      const at = new Date(e.ts).getTime();
+      if (last === null || last - at >= SESSION_GAP_MS) {
+        const session = el("div", "session");
+        const t = when(e.ts);
+        session.append(el("h3", "", `Session · ${t.day}`));
+        card = el("div", "card");
+        session.append(card);
+        box.append(session);
+      }
+      card.append(entryNode(e));
+      last = at;
+    }
+  }
+
+  function renderPinned(pinned) {
+    const box = $("pinned");
+    box.replaceChildren();
+    if (!pinned.length) { box.textContent = "Nothing pinned."; return; }
+    for (const e of pinned) box.append(el("div", "change", `★ ${e.text}`));
+  }
+
+  function renderFilters() {
+    const box = $("filters");
+    box.replaceChildren();
+    for (const kind of KINDS) {
+      const b = el("button", "", kind);
+      b.setAttribute("aria-pressed", String(shown.has(kind)));
+      b.addEventListener("click", () => { shown.has(kind) ? shown.delete(kind) : shown.add(kind); renderFilters(); renderTimeline(Boolean($("q").value.trim())); });
+      box.append(b);
+    }
+  }
+
+  async function loadChanges() {
+    const data = await api("/api/changes");
+    $("project").textContent = data.project ? `· ${data.project}` : "";
+    const active = $("active");
+    active.replaceChildren();
+    if (data.active) { active.append("active "); active.append(el("b", "", data.active)); active.append(` · ${data.phase}`); }
+    else { active.textContent = "no active change"; }
+    const box = $("changes");
+    box.replaceChildren();
+    if (!data.changes.length) { box.textContent = "No changes yet."; return; }
+    for (const c of data.changes) {
+      const row = el("div", "change" + (c.id === data.active ? " active" : ""));
+      row.append(el("span", "", c.id), el("span", "phase", c.phase));
+      box.append(row);
+    }
+  }
+
+  async function load() {
+    const q = $("q").value.trim();
+    try {
+      const data = q ? await api("/api/search?q=" + encodeURIComponent(q)) : await api("/api/entries");
+      entries = data.entries;
+      renderTimeline(Boolean(q));
+      renderPinned((await api("/api/pinned")).entries);
+    } catch (err) {
+      $("timeline").replaceChildren(el("div", "card empty error", err.message));
+    }
+  }
+
+  async function act(path, id) {
+    try { await api(path, { id }); await load(); }
+    catch (err) { alert(err.message); }
+  }
+
+  let timer = 0;
+  $("q").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(load, 200); });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "/" && document.activeElement !== $("q")) { ev.preventDefault(); $("q").focus(); } });
+  renderFilters();
+  loadChanges().catch((err) => { $("active").textContent = err.message; });
+  load();
+})();
+</script>
+</body>
+</html>

@@ -8,6 +8,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from grillspec.config import load_config
+from grillspec.journal import brief
 from grillspec.paths import data_root
 from grillspec.state import Phase, compute_status, gates_pause
 
@@ -84,6 +85,22 @@ def _gates_line(root: Path, config: Config, status: Status) -> list[str]:
     return [f"gates: on — edits outside {change}'s artifacts are blocked {until}"]
 
 
+def _brief(root: Path, status: Status) -> list[str]:
+    """Return the session-memory brief for a set-up project.
+
+    Args:
+        root: Path - Project root.
+        status: Status - Current status.
+
+    Returns:
+        list[str] - The brief, or nothing outside a grillspec project.
+
+    """
+    if not (root / ".grillspec" / "config.toml").is_file():
+        return []
+    return [brief(root, status)]
+
+
 def session_context(root: Path) -> str:
     """Build what a session should know about grillspec when it starts.
 
@@ -107,7 +124,7 @@ def session_context(root: Path) -> str:
         loaded = load_config(root)
         status = compute_status(root, loaded.config)
         parts.append(f"{status.line()}\ngrillspec CLI: {cli_command()} <command>")
-        parts.extend(_gates_line(root, loaded.config, status))
+        parts.extend([*_gates_line(root, loaded.config, status), *_brief(root, status)])
         warnings.extend((*loaded.warnings, *status.warnings))
     except Exception as error:  # ruff: ignore[blind-except] - a hook must never fail the session
         warnings.append(f"grillspec bootstrap failed: {type(error).__name__}: {error}")

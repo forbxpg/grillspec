@@ -13,6 +13,7 @@ skill is in [What grillspec costs in tokens](tokens.md).
 | Memory | [How memory works](how-it-works/memory.md) | A fact learned once should not be re-derived every session. | always on: the memory block |
 | Plans | [How plans work](how-it-works/plans.md) | The plan holds the decisions an implementer cannot make alone. | on demand |
 | Execution | [How execution works](how-it-works/execution.md) | Test-first tasks and a fresh review keep the code honest to the spec. | on demand |
+| Session memory | [How session memory works](how-it-works/session-memory.md) | A new session should not need the last one explained again. | always on: the resume brief (≤ 1,500 tokens) |
 | Archive | [How archiving works](how-it-works/archive.md) | Living specs stay the record of what the system does. | on demand |
 | Phase gates | [How phase gates work](how-it-works/gates.md) | Code written before the spec is approved is a guess. | none: a hook, not context |
 | Token costs | [What grillspec costs in tokens](tokens.md) | "Costs little" has to be a number. | — |
