@@ -28,6 +28,7 @@ jobs:
       - run: uv run python scripts/lint_skills.py
       - run: uv run python scripts/bump_version.py --check
       - run: uv run python scripts/check_docs_mirror.py
+      - run: uv run python scripts/check_tokens.py
 
   test:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})

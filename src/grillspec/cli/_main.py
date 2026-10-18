@@ -46,7 +46,7 @@ from grillspec.memory import (
     read_entries,
     retire_entry,
 )
-from grillspec.paths import project_root, write_atomic
+from grillspec.paths import data_root, project_root, write_atomic
 from grillspec.specs import (
     Finding,
     Report,
@@ -68,6 +68,7 @@ from grillspec.state import (
     resume_gates,
     set_active,
 )
+from grillspec.tokens import BYTES_PER_TOKEN, ROUTER, measure, render_markdown
 
 if TYPE_CHECKING:
     import io
@@ -114,6 +115,23 @@ def _add_memory(memory: argparse.ArgumentParser) -> None:
     _ = add.add_argument("text", help="the fact, one line (put -- before it)")
     retire = actions.add_parser("retire", help="forget fact <n> (as listed)")
     _ = retire.add_argument("number", type=int)
+
+
+def _add_tokens(tokens: argparse.ArgumentParser) -> None:
+    """Add the ``tokens`` options.
+
+    Args:
+        tokens: argparse.ArgumentParser - The ``tokens`` sub-parser.
+
+    """
+    shape = tokens.add_mutually_exclusive_group()
+    _ = shape.add_argument("--json", action="store_true", help="print JSON")
+    _ = shape.add_argument(
+        "--markdown", action="store_true", help="print the docs table"
+    )
+    _ = tokens.add_argument(
+        "--project", action="store_true", help="include this project's memory block"
+    )
 
 
 def _add_council(council: argparse.ArgumentParser) -> None:
@@ -178,6 +196,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = commands.add_parser("gate", help="pause or resume the phase gate").add_argument(
         "action", choices=["pause", "resume"]
     )
+    _add_tokens(commands.add_parser("tokens", help="estimate grillspec's context cost"))
     _ = commands.add_parser(
         "archive", help="archive the done active change"
     ).add_argument("--dry-run", action="store_true", help="only list it")
@@ -798,6 +817,62 @@ def _hook(event: str, harness: str) -> int:
     return 0
 
 
+def _tokens(*, as_json: bool, markdown: bool, project: bool) -> int:
+    """Print grillspec's estimated context costs.
+
+    Args:
+        as_json: bool - Print JSON.
+        markdown: bool - Print the table the docs embed.
+        project: bool - Include the current project's memory block.
+
+    Returns:
+        int - Exit code 0.
+
+    """
+    try:
+        costs = measure(data_root(), project_root(Path.cwd()) if project else None)
+    except (BlockError, UnicodeDecodeError) as error:
+        _ = sys.stderr.write(f"grillspec: AGENTS.md: {error}\n")
+        return 1
+    if not costs.skills:
+        _ = sys.stderr.write("grillspec: no skills found next to the CLI\n")
+        return 1
+    if markdown:
+        return _print(render_markdown(costs))
+    if as_json:
+        payload = {
+            "version": 1,
+            "bytes_per_token": BYTES_PER_TOKEN,
+            "router": costs.router,
+            "catalogue": costs.catalogue,
+            "memory": costs.memory,
+            "always_on": costs.always_on,
+            "skills": [
+                {"name": s.name, "body": s.body, "references": s.references}
+                for s in costs.skills
+            ],
+        }
+        return _print(json.dumps(payload, indent=2))
+    lines = [
+        f"always-on per session: ≈{costs.always_on:,} tokens",
+        f"  router and status line  ≈{costs.router:,}",
+        f"  skill catalogue         ≈{costs.catalogue:,}",
+    ]
+    if costs.memory is not None:
+        lines.append(f"  memory block            ≈{costs.memory:,}")
+    elif project:
+        lines.append("  memory block            none")
+    lines.append("when a skill is used:")
+    width = max(len(s.name) for s in costs.skills)
+    for skill in costs.skills:
+        extra = f" (+≈{skill.references:,} references)" if skill.references else ""
+        if skill.name == ROUTER:
+            extra = f"{extra} (counted in the router above)"
+        lines.append(f"  {skill.name:<{width}}  ≈{skill.body:,}{extra}")
+    lines.append(f"estimates: UTF-8 bytes / {BYTES_PER_TOKEN}")
+    return _print("\n".join(lines))
+
+
 def _gate(action: str) -> int:
     """Pause or resume the phase gate for the active change.
 
@@ -913,6 +988,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         int - The process exit code.
 
     """
+    for stream in (sys.stdout, sys.stderr):  # a legacy console must not crash on ≈ or →
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            _ = reconfigure(errors="replace")
     args = _build_parser().parse_args(argv)
     handlers: dict[str, Callable[[], int]] = {
         "version": lambda: _print(__version__),
@@ -920,6 +999,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "use": lambda: _use(cast("str", args.change_id)),
         "hook": lambda: _hook(cast("str", args.event), cast("str", args.harness)),
         "gate": lambda: _gate(cast("str", args.action)),
+        "tokens": lambda: _tokens(
+            as_json=cast("bool", args.json),
+            markdown=cast("bool", args.markdown),
+            project=cast("bool", args.project),
+        ),
         "init": lambda: _init(
             cast("str", args.backend), dry_run=cast("bool", args.dry_run)
         ),
