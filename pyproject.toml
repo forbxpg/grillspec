@@ -56,6 +56,10 @@ filterwarnings = ["error"]
 branch = true
 source = ["grillspec"]
 
+[tool.hatch.build.targets.sdist]
+# Local scratch that nested .gitignore files hide from git but not from hatch.
+exclude = [".superpowers", "private", "tests/evals/results", ".grillspec"]
+
 [tool.hatch.build.targets.wheel.force-include]
 "skills" = "grillspec/_bundled/skills"
 "hooks" = "grillspec/_bundled/hooks"

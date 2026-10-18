@@ -47,3 +47,28 @@ def test_sdist_carries_plugin_files(tmp_path: Path):
         ".claude-plugin/plugin.json",
     }
     assert expected <= names, sorted(expected - names)
+
+
+LOCAL_ONLY = (".superpowers", "private", "tests/evals/results", ".grillspec")
+
+
+def test_sdist_leaves_local_scratch_out(tmp_path: Path):
+    probes = [REPO / folder / "zz-sdist-probe.md" for folder in LOCAL_ONLY]
+    made = [probe for probe in probes if not probe.exists()]
+    try:
+        for probe in made:
+            probe.parent.mkdir(parents=True, exist_ok=True)
+            _ = probe.write_text("local only\n", encoding="utf-8")
+        subprocess.run(
+            ["uv", "build", "--sdist", "-q", "-o", str(tmp_path)], cwd=REPO, check=True
+        )
+    finally:
+        for probe in made:
+            probe.unlink(missing_ok=True)
+    (sdist,) = tmp_path.glob("*.tar.gz")
+    with tarfile.open(sdist) as archive:
+        names = [name.split("/", 1)[1] for name in archive.getnames() if "/" in name]
+    leaked = [
+        n for n in names if any(n == f or n.startswith(f + "/") for f in LOCAL_ONLY)
+    ]
+    assert leaked == []
