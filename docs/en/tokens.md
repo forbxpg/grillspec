@@ -14,7 +14,7 @@ CI fails when it falls behind the skills.
 <!-- grillspec:tokens:begin -->
 | Part | When it is loaded | ≈ tokens |
 |---|---|---|
-| router and status line | every session (hooks or `GIGACODE.md`) | 1,363 |
+| router and status line | every session (hooks or `GIGACODE.md`) | 1,412 |
 | skill catalogue (18 skills) | every session | 844 |
 | `grillspec-archive` | when the skill is used | 490 |
 | `grillspec-council` | when the skill is used | 1,169 (+up to 168 in references) |
@@ -33,7 +33,7 @@ CI fails when it falls behind the skills.
 | `grillspec-tdd` | when the skill is used | 2,426 (+up to 1,831 in references) |
 | `grillspec-verification` | when the skill is used | 762 |
 | `grillspec-worktrees` | when the skill is used | 1,487 |
-| `using-grillspec` | every session (the router above) | 1,343 (+up to 825 in references) |
+| `using-grillspec` | every session (the router above) | 1,391 (+up to 825 in references) |
 <!-- grillspec:tokens:end -->
 
 A skill's references are the other files in its folder; the agent reads them only

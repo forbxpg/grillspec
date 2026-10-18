@@ -115,6 +115,7 @@ longer stands with `grillspec recall --resolve <id>`.
 | "Let me explore the code first, then ask." | Decide the row first; looking things up is part of the grill. |
 | "The user is in a hurry." | Ask the one decision that matters — unless they said no questions: then list your assumptions first and proceed. |
 | "They approved the idea, so the spec is approved." | Approval is an explicit reply to the written artifact. |
+| "I'll leave a `note todo` and add the test later." | A note records; it never defers a test or a gate. Write the test now — or, if the user waived it, say plainly the code is untested and leave the task unticked. |
 
 ## Harness tools
 

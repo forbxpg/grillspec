@@ -7,6 +7,12 @@ release may break things and says so here.
 
 ## [Unreleased]
 
+### Changed
+
+- The router's red flags say a `grillspec note todo` or `blocker` never defers a test
+  or a phase gate: the agent writes the test now, or, when the user waives it, says
+  plainly that the code is untested and leaves the task unticked.
+
 ## [0.2.0] - 2026-10-18
 
 ### Added
