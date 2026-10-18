@@ -2,7 +2,19 @@
 
 from __future__ import annotations
 
+from ._brief import BRIEF_TOKENS, brief, line, record_event
 from ._redact import redact
 from ._store import KINDS, NOTE_KINDS, Entry, Journal, JournalError
 
-__all__ = ("KINDS", "NOTE_KINDS", "Entry", "Journal", "JournalError", "redact")
+__all__ = (
+    "BRIEF_TOKENS",
+    "KINDS",
+    "NOTE_KINDS",
+    "Entry",
+    "Journal",
+    "JournalError",
+    "brief",
+    "line",
+    "record_event",
+    "redact",
+)

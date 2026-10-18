@@ -37,6 +37,14 @@ from grillspec.gates import GATED, pre_tool
 from grillspec.hooks import Harness, render_session_start, session_context
 from grillspec.init import init_project
 from grillspec.install import InstallConflictError, Scope, install, uninstall
+from grillspec.journal import (
+    NOTE_KINDS,
+    Journal,
+    JournalError,
+    brief,
+    line,
+    record_event,
+)
 from grillspec.memory import (
     CATEGORIES,
     MAX_ENTRIES,
@@ -134,6 +142,40 @@ def _add_tokens(tokens: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_note(note: argparse.ArgumentParser) -> None:
+    """Add the ``note`` arguments.
+
+    Args:
+        note: argparse.ArgumentParser - The ``note`` sub-parser.
+
+    """
+    _ = note.add_argument("kind", choices=NOTE_KINDS)
+    _ = note.add_argument(
+        "text", help="one line, at most 500 characters (put -- first)"
+    )
+
+
+def _add_recall(recall: argparse.ArgumentParser) -> None:
+    """Add the ``recall`` arguments.
+
+    Args:
+        recall: argparse.ArgumentParser - The ``recall`` sub-parser.
+
+    """
+    _ = recall.add_argument("query", nargs="*", help="words to look for")
+    action = recall.add_mutually_exclusive_group()
+    _ = action.add_argument(
+        "--brief", action="store_true", help="print the resume brief"
+    )
+    _ = action.add_argument(
+        "--pin", type=int, metavar="ID", help="always show in the brief"
+    )
+    _ = action.add_argument("--unpin", type=int, metavar="ID")
+    _ = action.add_argument("--forget", type=int, metavar="ID", help="delete for good")
+    _ = recall.add_argument("--json", action="store_true", help="print JSON")
+    _ = recall.add_argument("--limit", type=int, default=20)
+
+
 def _add_council(council: argparse.ArgumentParser) -> None:
     """Add ``council ask`` to the ``council`` parser.
 
@@ -197,6 +239,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "action", choices=["pause", "resume"]
     )
     _add_tokens(commands.add_parser("tokens", help="estimate grillspec's context cost"))
+    _add_note(commands.add_parser("note", help="write a session-memory note"))
+    _add_recall(commands.add_parser("recall", help="search session memory"))
     _ = commands.add_parser(
         "archive", help="archive the done active change"
     ).add_argument("--dry-run", action="store_true", help="only list it")
@@ -245,7 +289,104 @@ def _new(slug: str, *, switch: bool, depth: str | None, council: bool) -> int:
         council=council,
     )
     log = change.log_path.relative_to(root).as_posix() if change.log_path else "-"
+    _event(root, change.id, "change started")
     return _print(f"created {change.id}; decision log: {log}")
+
+
+def _event(root: Path, change: str | None, text: str) -> None:
+    """Record a journal event; a failure is one warning line, never an error.
+
+    Args:
+        root: Path - Project root.
+        change: str | None - The change it belongs to.
+        text: str - What happened.
+
+    """
+    warning = record_event(root, change, text)
+    if warning:
+        _ = sys.stderr.write(f"grillspec: journal: {warning}\n")
+
+
+MAX_NOTE = 500
+
+
+def _journal_root() -> Path | None:
+    root = project_root(Path.cwd())
+    if (root / ".grillspec" / "config.toml").is_file():
+        return root
+    _ = sys.stderr.write("grillspec is not set up here; run grillspec init\n")
+    return None
+
+
+def _note(kind: str, text: str) -> int:
+    """Write one session-memory note for the active change.
+
+    Args:
+        kind: str - ``handoff``, ``discovery``, ``blocker`` or ``todo``.
+        text: str - One line.
+
+    Returns:
+        int - Exit code.
+
+    """
+    root = _journal_root()
+    if root is None:
+        return 1
+    body = text.strip()
+    if not body or "\n" in body or len(body) > MAX_NOTE:
+        msg = f"a note is one non-empty line of at most {MAX_NOTE} characters"
+        _ = sys.stderr.write(f"grillspec: {msg}\n")
+        return 1
+    change, _warnings = active_change_id(root)
+    entry = Journal(root).add(kind, body, change=change)
+    return _print(line(entry))
+
+
+def _recall(args: argparse.Namespace) -> int:
+    """Search, show the brief, or pin, unpin or forget one entry.
+
+    Args:
+        args: argparse.Namespace - Parsed ``recall`` arguments.
+
+    Returns:
+        int - Exit code: 1 when not set up or the id is unknown.
+
+    """
+    root = _journal_root()
+    if root is None:
+        return 1
+    journal = Journal(root)
+    if cast("bool", args.brief):
+        return _print(brief(root, compute_status(root, load_config(root).config)))
+    for flag in ("pin", "unpin", "forget"):
+        entry_id = cast("int | None", getattr(args, flag))
+        if entry_id is None:
+            continue
+        if journal.get(entry_id) is None:
+            _ = sys.stderr.write(f"grillspec: no entry {entry_id}\n")
+            return 1
+        if flag == "forget":
+            journal.forget(entry_id)
+        else:
+            journal.set_pinned(entry_id, flag=flag == "pin")
+        return _print(f"{flag} {entry_id}")
+    query = " ".join(cast("list[str]", args.query))
+    limit = cast("int", args.limit)
+    found = journal.search(query, limit) if query else journal.recent(limit)
+    if cast("bool", args.json):
+        rows = [
+            {
+                "id": e.id,
+                "ts": e.ts,
+                "kind": e.kind,
+                "change": e.change,
+                "text": e.text,
+                "pinned": e.pinned,
+            }
+            for e in found
+        ]
+        return _print(json.dumps(rows, ensure_ascii=False, indent=2))
+    return _print("\n".join(line(e) for e in found) or "no matches")
 
 
 def _plan_refusal(root: Path, backend: Backend) -> str | None:
@@ -337,6 +478,7 @@ def _approve(stage: str, executor: str | None = None) -> int:
         executor=executor if Stage(stage) is Stage.PLAN else None,
     )
     resume_gates(root)  # a pause lasts one phase; approval moves the phase on
+    _event(root, sidecar.stem, f"{stage} approved")
     return _print(f"approved {stage} for {sidecar.stem}")
 
 
@@ -561,6 +703,8 @@ def _exec_run(target: ExecTarget, args: argparse.Namespace) -> int:
     code, tail = finish_task(target, task, base, command)
     if tail:
         _ = sys.stdout.write(tail + "\n")
+    if code == 0:
+        _event(target.root, target.change_id, f"task {task} done")
     return code
 
 
@@ -605,13 +749,16 @@ def _archive(*, dry_run: bool) -> int:
         _ = sys.stderr.write("grillspec is not set up here; run grillspec init\n")
         return 1
     today = dt.datetime.now().astimezone().date()
+    change, _warnings = active_change_id(root)
     try:
         ops = archive_change(root, config, today=today, dry_run=dry_run)
     except ArchiveError as error:
         _ = sys.stderr.write(f"grillspec: {error}\n")
         return 1
-    for line in ops:
-        _ = sys.stdout.write(f"{'would ' if dry_run else ''}{line}\n")
+    for op in ops:
+        _ = sys.stdout.write(f"{'would ' if dry_run else ''}{op}\n")
+    if not dry_run:
+        _event(root, change, "archived")
     return 0
 
 
@@ -1003,6 +1150,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "use": lambda: _use(cast("str", args.change_id)),
         "hook": lambda: _hook(cast("str", args.event), cast("str", args.harness)),
         "gate": lambda: _gate(cast("str", args.action)),
+        "note": lambda: _note(cast("str", args.kind), cast("str", args.text)),
+        "recall": lambda: _recall(args),
         "tokens": lambda: _tokens(
             as_json=cast("bool", args.json),
             markdown=cast("bool", args.markdown),
@@ -1051,6 +1200,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         InstallConflictError,
         ChangeError,
         CouncilError,
+        JournalError,
         MemoryBlockError,
     ) as error:
         _ = sys.stderr.write(f"grillspec: {error}\n")
