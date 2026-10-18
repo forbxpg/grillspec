@@ -2,7 +2,7 @@
 
 **Spec-driven agentic development: the agent asks before it guesses.**
 
-`0.1.0` · [Русская версия](README.ru.md)
+`0.1.1` · [Русская версия](README.ru.md)
 
 grillspec is a library of agent skills and hooks. Before an agent builds something
 that involves a decision, it grills you — one decision at a time, each with a
