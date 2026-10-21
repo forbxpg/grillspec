@@ -1,6 +1,6 @@
 [project]
 name = "grillspec"
-version = "0.2.0"
+version = "0.2.1"
 description = "Spec-driven agentic development: grill the user, write the spec, plan, execute. Skills and hooks for Claude Code, Cursor, Codex, Antigravity and GigaCode."
 readme = "README.md"
 license = "MIT"

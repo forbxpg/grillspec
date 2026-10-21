@@ -7,8 +7,20 @@ release may break things and says so here.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-21
+
+### Added
+
+- Council on a GigaCode-only machine: when no other agent CLI is installed and logged
+  in, `gigacode` joins the default council. `grillspec detect --json` lists the default
+  members under `council`, and `grillspec council ask` with no members configured asks
+  them instead of failing.
+
 ### Changed
 
+- The `gigacode` council member runs with `-e none --no-chat-recording`: no extensions
+  (grillspec's own router and hooks stay out of it) and no saved session. Its login
+  check reads the `✓`/`⚠` marks of `gigacode auth status`, so it works in any locale.
 - The router's red flags say a `grillspec note todo` or `blocker` never defers a test
   or a phase gate: the agent writes the test now, or, when the user waives it, says
   plainly that the code is untested and leaves the task unticked.
@@ -30,16 +42,6 @@ release may break things and says so here.
   `edit` and `run_shell_command` once GigaCode hooks are enabled.
 - Installation without npx or uv: from a clone, a release zip or a PyPI mirror's source
   distribution, with the bundled launcher.
-- Council on a GigaCode-only machine: when no other agent CLI is installed and logged
-  in, `gigacode` joins the default council. `grillspec detect --json` lists the default
-  members under `council`, and `grillspec council ask` with no members configured asks
-  them instead of failing.
-
-### Changed
-
-- The `gigacode` council member runs with `-e none --no-chat-recording`: no extensions
-  (grillspec's own router and hooks stay out of it) and no saved session. Its login
-  check reads the `✓`/`⚠` marks of `gigacode auth status`, so it works in any locale.
 
 ## [0.1.1] - 2026-10-18
 
@@ -87,7 +89,8 @@ First public release.
 - `grillspec tokens` and a generated cost table in the docs; measured session
   overhead.
 
-[Unreleased]: https://github.com/forbxpg/grillspec/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/forbxpg/grillspec/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/forbxpg/grillspec/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/forbxpg/grillspec/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/forbxpg/grillspec/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/forbxpg/grillspec/releases/tag/v0.1.0
