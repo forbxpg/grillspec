@@ -1,7 +1,7 @@
 {
   "name": "grillspec",
   "displayName": "grillspec",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Spec-driven agentic development: grill the user until nothing is guessed, write the spec, plan, then execute with TDD.",
   "keywords": [
     "spec-driven-development",
